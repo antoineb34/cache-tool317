@@ -109,6 +109,28 @@ Known definitions archive hashes include:
 - `varbit.dat` / `varbit.idx`
 - cracked small definition files: `mesanim.dat` / `mesanim.idx`, `mes.dat` / `mes.idx`, `param.dat` / `param.idx`
 
+### `core/include/VersionList.h` + `VersionList.cpp`
+Parses archive `0`, file `5` (`versionlist`) metadata.
+
+Currently implemented:
+- `VersionList::parse(archive)` reads `map_index`
+- `mapIndex()` returns all parsed map region records
+- `findMapRegion(regionId)` finds one map region record
+
+`map_index` records are 7 bytes:
+```text
+regionId (2) | terrainFileId (2) | objectFileId (2) | flag (1)
+```
+
+Verified against the bundled cache:
+```text
+Versionlist loaded successfully.
+Map regions: 587
+First map region: regionId=7499 terrainFileId=216 objectFileId=217 flag=0
+```
+
+This is the bridge from a map region id to the actual `idx4` terrain/object file ids.
+
 ### Definition Parsers
 Opcode-driven parsers are implemented for:
 - `ItemDef` from `obj.dat` / `obj.idx`
@@ -312,6 +334,14 @@ loader.loadVarps(defs);
 ```
 
 Map work will need GZIP decompression for idx4 files, then parsers for terrain/location placement data. `FloDef`, `LocDef`, `VarbitDef`, and `VarpDef` are now available to support terrain colors/textures and object transform resolution.
+
+Use `VersionList::mapIndex()` to map a region id to the `idx4` file ids:
+```cpp
+Archive versionlistArchive = reader.readArchive(0, 5);
+VersionList versionList = VersionList::parse(versionlistArchive);
+const MapIndexEntry* entry = versionList.findMapRegion(regionId);
+// entry->terrainFileId and entry->objectFileId are files in archive idx4
+```
 
 ---
 

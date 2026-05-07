@@ -18,6 +18,7 @@ target_sources(core PRIVATE
     src/SpotAnimDef.cpp
     src/VarbitDef.cpp
     src/VarpDef.cpp
+    src/VersionList.cpp
 )
 
 target_include_directories(core PUBLIC

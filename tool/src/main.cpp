@@ -1,6 +1,7 @@
 #include <iostream>
 #include "CacheReader.h"
 #include "DefinitionsLoader.h"
+#include "VersionList.h"
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
@@ -50,8 +51,25 @@ int main(int argc, char* argv[]) {
         std::cout << "SpotAnims: " << loader.spotAnimCount() << std::endl;
         std::cout << "Varbits: " << loader.varbitCount() << std::endl;
         std::cout << "Varps: " << loader.varpCount() << std::endl;
+
+        Archive versionlistArchive = reader.readArchive(0, 5);
+        if (versionlistArchive.size() == 0) {
+            std::cerr << "Failed to read versionlist archive." << std::endl;
+            return 1;
+        }
+
+        VersionList versionList = VersionList::parse(versionlistArchive);
+        std::cout << "Versionlist loaded successfully." << std::endl;
+        std::cout << "Map regions: " << versionList.mapIndex().size() << std::endl;
+        if (!versionList.mapIndex().empty()) {
+            const auto& first = versionList.mapIndex().front();
+            std::cout << "First map region: regionId=" << first.regionId
+                      << " terrainFileId=" << first.terrainFileId
+                      << " objectFileId=" << first.objectFileId
+                      << " flag=" << first.flag << std::endl;
+        }
     } catch (const std::exception& ex) {
-        std::cerr << "Definition loading failed: " << ex.what() << std::endl;
+        std::cerr << "Cache verification failed: " << ex.what() << std::endl;
         return 1;
     }
 
