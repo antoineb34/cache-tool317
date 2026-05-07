@@ -82,6 +82,10 @@ void DefinitionsLoader::loadIdks(const Archive& archive) {
     loadDefs(archive, ArchiveNames::IDK_DAT, ArchiveNames::IDK_IDX, "idk.dat", "idk.idx", idks_);
 }
 
+void DefinitionsLoader::loadSpotAnims(const Archive& archive) {
+    loadDefs(archive, ArchiveNames::SPOTANIM_DAT, ArchiveNames::SPOTANIM_IDX, "spotanim.dat", "spotanim.idx", spotAnims_);
+}
+
 void DefinitionsLoader::loadVarbits(const Archive& archive) {
     loadDefs(archive, ArchiveNames::VARBIT_DAT, ArchiveNames::VARBIT_IDX, "varbit.dat", "varbit.idx", varbits_);
 }
@@ -140,6 +144,16 @@ const IdkDef& DefinitionsLoader::getIdk(int id) const {
 
 int DefinitionsLoader::idkCount() const {
     return static_cast<int>(idks_.size());
+}
+
+const SpotAnimDef& DefinitionsLoader::getSpotAnim(int id) const {
+    if (id < 0 || id >= (int)spotAnims_.size())
+        throw std::out_of_range("SpotAnimDef id out of range: " + std::to_string(id));
+    return spotAnims_[id];
+}
+
+int DefinitionsLoader::spotAnimCount() const {
+    return static_cast<int>(spotAnims_.size());
 }
 
 const VarbitDef& DefinitionsLoader::getVarbit(int id) const {

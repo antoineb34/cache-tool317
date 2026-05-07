@@ -11,6 +11,7 @@ target_sources(core PRIVATE
     src/ItemDef.cpp
     src/LocDef.cpp
     src/NpcDef.cpp
+    src/SpotAnimDef.cpp
     src/VarbitDef.cpp
     src/VarpDef.cpp
 )

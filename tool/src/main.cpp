@@ -29,6 +29,7 @@ int main(int argc, char* argv[]) {
         loader.loadLocs(defs);
         loader.loadFlos(defs);
         loader.loadIdks(defs);
+        loader.loadSpotAnims(defs);
         loader.loadVarbits(defs);
         loader.loadVarps(defs);
 
@@ -38,6 +39,7 @@ int main(int argc, char* argv[]) {
         std::cout << "Locs:  " << loader.locCount() << std::endl;
         std::cout << "Flos:  " << loader.floCount() << std::endl;
         std::cout << "Idks:  " << loader.idkCount() << std::endl;
+        std::cout << "SpotAnims: " << loader.spotAnimCount() << std::endl;
         std::cout << "Varbits: " << loader.varbitCount() << std::endl;
         std::cout << "Varps: " << loader.varpCount() << std::endl;
     } catch (const std::exception& ex) {

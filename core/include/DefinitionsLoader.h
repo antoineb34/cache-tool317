@@ -8,6 +8,7 @@
 #include "ItemDef.h"
 #include "LocDef.h"
 #include "NpcDef.h"
+#include "SpotAnimDef.h"
 #include "VarbitDef.h"
 #include "VarpDef.h"
 
@@ -27,6 +28,9 @@ public:
 
     // load identity kit definitions from idk.dat + idk.idx
     void loadIdks(const Archive& archive);
+
+    // load spot animation definitions from spotanim.dat + spotanim.idx
+    void loadSpotAnims(const Archive& archive);
 
     // load variable-bit definitions from varbit.dat + varbit.idx
     void loadVarbits(const Archive& archive);
@@ -50,6 +54,9 @@ public:
     const IdkDef& getIdk(int id) const;
     int           idkCount()     const;
 
+    const SpotAnimDef& getSpotAnim(int id) const;
+    int                spotAnimCount()      const;
+
     const VarbitDef& getVarbit(int id) const;
     int              varbitCount()     const;
 
@@ -62,6 +69,7 @@ private:
     std::vector<LocDef>  locs_;
     std::vector<FloDef>  flos_;
     std::vector<IdkDef>  idks_;
+    std::vector<SpotAnimDef> spotAnims_;
     std::vector<VarbitDef> varbits_;
     std::vector<VarpDef>   varps_;
 };
