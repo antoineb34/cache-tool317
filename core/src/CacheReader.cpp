@@ -1,6 +1,30 @@
 #include "CacheReader.h"
 
+#include <bzlib.h>
 #include <iostream>
+
+// decompresses a Jagex BZIP2 block
+// Jagex strips the standard BZh1 header so we prepend it before decompressing
+static std::vector<uint8_t> decompressBzip2(const uint8_t* src, uint32_t srcLen, uint32_t destLen) {
+    std::vector<uint8_t> input(srcLen + 4);
+    input[0] = 'B'; input[1] = 'Z'; input[2] = 'h'; input[3] = '1';
+    std::copy(src, src + srcLen, input.begin() + 4);
+
+    std::vector<uint8_t> output(destLen);
+    unsigned int outLen = destLen;
+
+    int result = BZ2_bzBuffToBuffDecompress(
+        reinterpret_cast<char*>(output.data()), &outLen,
+        reinterpret_cast<char*>(input.data()), static_cast<unsigned int>(input.size()),
+        0, 0
+    );
+
+    if (result != BZ_OK) {
+        std::cerr << "BZip2 decompression failed: " << result << std::endl;
+        return {};
+    }
+    return output;
+}
 
 // reads N bytes from a stream and assembles them into a uint32_t using big-endian order
 static uint32_t readBigEndian(std::ifstream& stream, int numBytes) {
@@ -73,4 +97,58 @@ std::vector<uint8_t> CacheReader::readFile(int archiveId, int fileId) {
     }
 
     return buffer;
+}
+
+Archive CacheReader::readArchive(int archiveId, int fileId) {
+    std::vector<uint8_t> raw = readFile(archiveId, fileId);
+    if (raw.size() < 6) return {};
+
+    // parse outer 6-byte header
+    uint32_t decompSize = ((uint32_t)raw[0] << 16) | ((uint32_t)raw[1] << 8) | raw[2];
+    uint32_t compSize   = ((uint32_t)raw[3] << 16) | ((uint32_t)raw[4] << 8) | raw[5];
+
+    // get the decompressed data block
+    std::vector<uint8_t> data;
+    if (decompSize != compSize) {
+        // whole-archive compressed — decompress everything at once
+        // sub-files inside will NOT be individually compressed
+        data = decompressBzip2(raw.data() + 6, compSize, decompSize);
+    } else {
+        // not whole-archive compressed — data follows the 6-byte header directly
+        // sub-files inside may be individually compressed
+        data.assign(raw.begin() + 6, raw.end());
+    }
+
+    if (data.size() < 2) return {};
+
+    bool wholeCompressed = (decompSize != compSize);
+
+    // parse entry table
+    uint16_t numEntries = ((uint16_t)data[0] << 8) | data[1];
+    int tableOffset = 2;
+    int dataOffset  = 2 + numEntries * 10;
+
+    Archive archive;
+
+    for (int i = 0; i < numEntries; i++) {
+        uint32_t hash  = ((uint32_t)data[tableOffset+0] << 24) | ((uint32_t)data[tableOffset+1] << 16)
+                       | ((uint32_t)data[tableOffset+2] <<  8) |  (uint32_t)data[tableOffset+3];
+        uint32_t dSize = ((uint32_t)data[tableOffset+4] << 16) | ((uint32_t)data[tableOffset+5] <<  8) | data[tableOffset+6];
+        uint32_t cSize = ((uint32_t)data[tableOffset+7] << 16) | ((uint32_t)data[tableOffset+8] <<  8) | data[tableOffset+9];
+        tableOffset += 10;
+
+        std::vector<uint8_t> fileData;
+        if (!wholeCompressed && dSize != cSize) {
+            // sub-file is individually compressed
+            fileData = decompressBzip2(data.data() + dataOffset, cSize, dSize);
+        } else {
+            // sub-file is raw (either whole-archive was compressed, or this sub-file is uncompressed)
+            fileData.assign(data.begin() + dataOffset, data.begin() + dataOffset + dSize);
+        }
+        dataOffset += cSize;
+
+        archive.files[hash] = std::move(fileData);
+    }
+
+    return archive;
 }

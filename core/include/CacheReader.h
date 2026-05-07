@@ -6,6 +6,7 @@
 #include <fstream>
 #include <vector>
 
+#include "Archive.h"
 #include "CacheDefinitions.h"
 
 class CacheReader {
@@ -24,6 +25,10 @@ public:
     // assembles the full data of a file by following the sector chain
     // returns the raw bytes of the file
     std::vector<uint8_t> readFile(int archiveId, int fileId);
+
+    // reads and parses a packed JAG sub-archive (archive 0 files)
+    // returns an Archive with all sub-files decompressed and indexed by name hash
+    Archive readArchive(int archiveId, int fileId);
 
 private:
     std::ifstream              dat;     // handle for main_file_cache.dat
