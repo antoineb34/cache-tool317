@@ -5,6 +5,7 @@ target_sources(core PRIVATE
     src/Archive.cpp
     src/Buffer.cpp
     src/CacheReader.cpp
+    src/DefinitionsLoader.cpp
     src/ItemDef.cpp
 )
 
