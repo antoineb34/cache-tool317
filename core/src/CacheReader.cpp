@@ -1,6 +1,7 @@
 #include "CacheReader.h"
 #include "Buffer.h"
 
+#include <array>
 #include <bzlib.h>
 #include <iostream>
 
@@ -27,14 +28,7 @@ static std::vector<uint8_t> decompressBzip2(const uint8_t* src, uint32_t srcLen,
     return output;
 }
 
-// reads N bytes from a stream and assembles them into a uint32_t using big-endian order
-static uint32_t readBigEndian(std::ifstream& stream, int numBytes) {
-    uint32_t result = 0;
-    for (int i = 0; i < numBytes; i++) {
-        result = (result << 8) | static_cast<uint8_t>(stream.get());
-    }
-    return result;
-}
+
 
 bool CacheReader::open(const std::filesystem::path& cachePath) {
     dat.open(cachePath / "main_file_cache.dat", std::ios::binary);
@@ -56,22 +50,28 @@ bool CacheReader::open(const std::filesystem::path& cachePath) {
 }
 
 IndexEntry CacheReader::readIndex(int archiveId, int fileId) {
+    std::array<uint8_t, 6> bytes;
     idx[archiveId].seekg(fileId * 6);
+    idx[archiveId].read(reinterpret_cast<char*>(bytes.data()), 6);
 
+    Buffer buf(bytes.data(), 6);
     IndexEntry entry;
-    entry.size        = readBigEndian(idx[archiveId], 3);
-    entry.firstSector = readBigEndian(idx[archiveId], 3);
+    entry.size        = buf.readTribyte();
+    entry.firstSector = buf.readTribyte();
     return entry;
 }
 
 Sector CacheReader::readSector(uint32_t sectorNum) {
+    std::array<uint8_t, 8> headerBytes;
     dat.seekg(sectorNum * 520);
+    dat.read(reinterpret_cast<char*>(headerBytes.data()), 8);
 
+    Buffer headerBuf(headerBytes.data(), 8);
     Sector sector;
-    sector.header.fileId     = readBigEndian(dat, 2);
-    sector.header.chunk      = readBigEndian(dat, 2);
-    sector.header.nextSector = readBigEndian(dat, 3);
-    sector.header.archiveId  = readBigEndian(dat, 1);
+    sector.header.fileId     = headerBuf.readUShort();
+    sector.header.chunk      = headerBuf.readUShort();
+    sector.header.nextSector = headerBuf.readTribyte();
+    sector.header.archiveId  = headerBuf.readByte();
     dat.read(reinterpret_cast<char*>(sector.data), 512);
     return sector;
 }
@@ -104,17 +104,16 @@ Archive CacheReader::readArchive(int archiveId, int fileId) {
     std::vector<uint8_t> raw = readFile(archiveId, fileId);
     if (raw.size() < 6) return {};
 
-    // parse the outer 6-byte archive header
+    // parse the outer 6-byte header: decompressed size + compressed size
     Buffer rawBuf(raw);
-    ArchiveHeader header;
-    header.decompressedSize = rawBuf.readTribyte();
-    header.compressedSize   = rawBuf.readTribyte();
+    uint32_t decompressedSize = rawBuf.readTribyte();
+    uint32_t compressedSize   = rawBuf.readTribyte();
 
     // get the data block, decompressing the whole archive if needed
     std::vector<uint8_t> data;
-    if (header.decompressedSize != header.compressedSize) {
+    if (decompressedSize != compressedSize) {
         // whole-archive compressed — sub-files inside will NOT be individually compressed
-        data = decompressBzip2(raw.data() + 6, header.compressedSize, header.decompressedSize);
+        data = decompressBzip2(raw.data() + 6, compressedSize, decompressedSize);
     } else {
         // not whole-archive compressed — sub-files may be individually compressed
         data.assign(raw.begin() + 6, raw.end());
@@ -122,7 +121,7 @@ Archive CacheReader::readArchive(int archiveId, int fileId) {
 
     if (data.size() < 2) return {};
 
-    bool wholeCompressed = (header.decompressedSize != header.compressedSize);
+    bool wholeCompressed = (decompressedSize != compressedSize);
 
     // parse the entry table
     Buffer dataBuf(data);
