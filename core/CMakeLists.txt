@@ -7,6 +7,7 @@ target_sources(core PRIVATE
     src/CacheReader.cpp
     src/DefinitionsLoader.cpp
     src/ItemDef.cpp
+    src/LocDef.cpp
     src/NpcDef.cpp
 )
 

@@ -55,14 +55,15 @@ namespace ArchiveNames {
     constexpr uint32_t VARBIT_IDX       = 0xe1500017; // varbit.idx
 
     // --------------------------------------------------------
-    // Archive 0, File 2 — definitions (unknown names, hashes only)
+    // Archive 0, File 2 — definitions (cracked)
     // --------------------------------------------------------
-    constexpr uint32_t UNKNOWN_AE38F79  = 0x0ae38f79; // unknown  22 bytes
-    constexpr uint32_t UNKNOWN_A2774214 = 0xa2774214; // unknown  246 bytes (possibly flo.idx)
-    constexpr uint32_t UNKNOWN_3D591C44 = 0x3d591c44; // unknown  46 bytes
-    constexpr uint32_t UNKNOWN_3D5965AC = 0x3d5965ac; // unknown  90 bytes
-    constexpr uint32_t UNKNOWN_AE3D8E1  = 0x0ae3d8e1; // unknown  42 bytes
-    constexpr uint32_t UNKNOWN_93A322EC = 0x93a322ec; // unknown  108 bytes
-    constexpr uint32_t UNKNOWN_93A36C54 = 0x93a36c54; // unknown  214 bytes
+    constexpr uint32_t FLO_IDX          = 0xa2774214; // flo.idx      (floor tile index, 246 bytes)
+    constexpr uint32_t MESANIM_DAT      = 0x0ae38f79; // mesanim.dat  (message animation data, 22 bytes)
+    constexpr uint32_t MESANIM_IDX      = 0x0ae3d8e1; // mesanim.idx  (message animation index, 42 bytes)
+
+    constexpr uint32_t MES_DAT          = 0x3d591c44; // mes.dat      (message definitions, 46 bytes)
+    constexpr uint32_t MES_IDX          = 0x3d5965ac; // mes.idx      (message definition index, 90 bytes)
+    constexpr uint32_t PARAM_DAT        = 0x93a322ec; // param.dat    (parameter definitions, 108 bytes)
+    constexpr uint32_t PARAM_IDX        = 0x93a36c54; // param.idx    (parameter definition index, 214 bytes)
 
 } // namespace ArchiveNames
