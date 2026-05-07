@@ -115,6 +115,7 @@ Opcode-driven parsers are implemented for:
 - `NpcDef` from `npc.dat` / `npc.idx`
 - `LocDef` from `loc.dat` / `loc.idx`
 - `FloDef` from `flo.dat` / `flo.idx`
+- `IdkDef` from `idk.dat` / `idk.idx`
 - `VarbitDef` from `varbit.dat` / `varbit.idx`
 - `VarpDef` from `varp.dat` / `varp.idx`
 
@@ -129,6 +130,7 @@ Loads parsed definition arrays from the definitions archive.
 - `loadNpcs(archive)`, `getNpc(id)`, `npcCount()`
 - `loadLocs(archive)`, `getLoc(id)`, `locCount()`
 - `loadFlos(archive)`, `getFlo(id)`, `floCount()`
+- `loadIdks(archive)`, `getIdk(id)`, `idkCount()`
 - `loadVarbits(archive)`, `getVarbit(id)`, `varbitCount()`
 - `loadVarps(archive)`, `getVarp(id)`, `varpCount()`
 
@@ -143,6 +145,7 @@ Items: 5553
 NPCs:  2266
 Locs:  7199
 Flos:  122
+Idks:  84
 Varbits: 627
 Varps: 493
 ```
@@ -165,6 +168,11 @@ All observed loc opcodes are currently handled by `LocDef::parse`.
 Observed floor opcodes in this cache:
 ```text
 0 1 2 3 5 6 7
+```
+
+Observed identity kit opcodes in this cache:
+```text
+0 1 2 3 40 50 60
 ```
 
 Observed varbit opcodes in this cache:
@@ -253,6 +261,7 @@ loader.loadItems(defs);
 loader.loadNpcs(defs);
 loader.loadLocs(defs);
 loader.loadFlos(defs);
+loader.loadIdks(defs);
 loader.loadVarbits(defs);
 loader.loadVarps(defs);
 ```

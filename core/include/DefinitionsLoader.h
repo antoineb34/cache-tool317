@@ -4,6 +4,7 @@
 
 #include "Archive.h"
 #include "FloDef.h"
+#include "IdkDef.h"
 #include "ItemDef.h"
 #include "LocDef.h"
 #include "NpcDef.h"
@@ -24,6 +25,9 @@ public:
     // load floor definitions from flo.dat + flo.idx
     void loadFlos(const Archive& archive);
 
+    // load identity kit definitions from idk.dat + idk.idx
+    void loadIdks(const Archive& archive);
+
     // load variable-bit definitions from varbit.dat + varbit.idx
     void loadVarbits(const Archive& archive);
 
@@ -43,6 +47,9 @@ public:
     const FloDef& getFlo(int id) const;
     int           floCount()     const;
 
+    const IdkDef& getIdk(int id) const;
+    int           idkCount()     const;
+
     const VarbitDef& getVarbit(int id) const;
     int              varbitCount()     const;
 
@@ -54,6 +61,7 @@ private:
     std::vector<NpcDef>  npcs_;
     std::vector<LocDef>  locs_;
     std::vector<FloDef>  flos_;
+    std::vector<IdkDef>  idks_;
     std::vector<VarbitDef> varbits_;
     std::vector<VarpDef>   varps_;
 };

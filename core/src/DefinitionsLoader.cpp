@@ -78,6 +78,10 @@ void DefinitionsLoader::loadFlos(const Archive& archive) {
     loadDefs(archive, ArchiveNames::FLO_DAT, ArchiveNames::FLO_IDX, "flo.dat", "flo.idx", flos_);
 }
 
+void DefinitionsLoader::loadIdks(const Archive& archive) {
+    loadDefs(archive, ArchiveNames::IDK_DAT, ArchiveNames::IDK_IDX, "idk.dat", "idk.idx", idks_);
+}
+
 void DefinitionsLoader::loadVarbits(const Archive& archive) {
     loadDefs(archive, ArchiveNames::VARBIT_DAT, ArchiveNames::VARBIT_IDX, "varbit.dat", "varbit.idx", varbits_);
 }
@@ -126,6 +130,16 @@ const FloDef& DefinitionsLoader::getFlo(int id) const {
 
 int DefinitionsLoader::floCount() const {
     return static_cast<int>(flos_.size());
+}
+
+const IdkDef& DefinitionsLoader::getIdk(int id) const {
+    if (id < 0 || id >= (int)idks_.size())
+        throw std::out_of_range("IdkDef id out of range: " + std::to_string(id));
+    return idks_[id];
+}
+
+int DefinitionsLoader::idkCount() const {
+    return static_cast<int>(idks_.size());
 }
 
 const VarbitDef& DefinitionsLoader::getVarbit(int id) const {
