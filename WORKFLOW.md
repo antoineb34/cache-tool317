@@ -97,6 +97,52 @@ struct Archive {
 Namespace of `constexpr uint32_t` hash constants for all known sub-file names.  
 Keep this updated whenever new hashes are identified.
 
+Known definitions archive hashes include:
+- `obj.dat` / `obj.idx`
+- `npc.dat` / `npc.idx`
+- `loc.dat` / `loc.idx`
+- `flo.dat` / `flo.idx`
+- `idk.dat` / `idk.idx`
+- `seq.dat` / `seq.idx`
+- `spotanim.dat` / `spotanim.idx`
+- `varp.dat` / `varp.idx`
+- `varbit.dat` / `varbit.idx`
+- cracked small definition files: `mesanim.dat` / `mesanim.idx`, `mes.dat` / `mes.idx`, `param.dat` / `param.idx`
+
+### Definition Parsers
+Opcode-driven parsers are implemented for:
+- `ItemDef` from `obj.dat` / `obj.idx`
+- `NpcDef` from `npc.dat` / `npc.idx`
+- `LocDef` from `loc.dat` / `loc.idx`
+
+Each parser lives in `core/include/<Name>.h` and `core/src/<Name>.cpp`.
+
+### `core/include/DefinitionsLoader.h` + `DefinitionsLoader.cpp`
+Loads parsed definition arrays from the definitions archive.
+
+**Public API:**
+- `loadItems(archive)`, `getItem(id)`, `itemCount()`
+- `loadNpcs(archive)`, `getNpc(id)`, `npcCount()`
+- `loadLocs(archive)`, `getLoc(id)`, `locCount()`
+
+The shared loader validates that requested `.dat` / `.idx` files exist and that indexed entry sizes stay inside the data file. Missing or malformed definition files should throw a clear `std::runtime_error` instead of crashing through `Buffer`.
+
+### LocDef Verification
+`loadLocs()` has been tested against the bundled cache:
+- `loc.dat` size: 294,680 bytes
+- `loc.idx` size: 14,400 bytes
+- loaded loc definitions: 7,199
+- `getLoc()` out-of-range guard works
+
+Observed loc opcodes in this cache:
+```text
+0 1 2 3 5 14 15 17 18 19 21 22 23 24 28 29
+30 31 32 33 34 39 40 60 62 64 65 66 67 68 69
+70 71 72 73 74 75 77
+```
+
+All observed loc opcodes are currently handled by `LocDef::parse`.
+
 ---
 
 ## 317 Cache Format — Key Knowledge
@@ -158,21 +204,18 @@ for (char c : name)
 ---
 
 ## What's Next
-The immediate next step is **parsing item definitions** from `obj.dat`.
+The immediate next step is **maps**: reading idx4 map files and connecting them to loc/object placement.
 
-To get `obj.dat`:
+To get the parsed definitions archive:
 ```cpp
 Archive defs = reader.readArchive(0, 2);
-auto objDat = defs.getFile(ArchiveNames::OBJ_DAT);
-Buffer buf(objDat);
+DefinitionsLoader loader;
+loader.loadItems(defs);
+loader.loadNpcs(defs);
+loader.loadLocs(defs);
 ```
 
-The `obj.dat` format starts with a 2-byte count of items, then for each item:
-- A series of opcode-driven fields (read opcode, then read the fields for that opcode, loop until opcode 0)
-
-The item definition struct should go in `core/include/` and the parser in `core/src/`.
-
-After items: NPCs (`npc.dat`), then objects/locations (`loc.dat`), then maps.
+Map work will need GZIP decompression for idx4 files, then parsers for terrain/location placement data.
 
 ---
 
