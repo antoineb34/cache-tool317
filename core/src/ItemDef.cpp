@@ -1,6 +1,14 @@
 #include "ItemDef.h"
 
-#include <iostream>
+#include <stdexcept>
+#include <string>
+
+static std::runtime_error unknownOpcodeError(const char* parserName, int opcode, int position) {
+    return std::runtime_error(
+        std::string(parserName) + ": unknown opcode " + std::to_string(opcode) +
+        " at buffer pos " + std::to_string(position)
+    );
+}
 
 ItemDef ItemDef::parse(Buffer& buf) {
     ItemDef def;
@@ -79,9 +87,7 @@ ItemDef ItemDef::parse(Buffer& buf) {
             case 115: buf.skip(1); break; // team uint8
 
             default:
-                std::cerr << "ItemDef: unknown opcode " << opcode
-                          << " at buffer pos " << buf.position() << std::endl;
-                return def; // can't safely continue
+                throw unknownOpcodeError("ItemDef", opcode, buf.position());
         }
     }
 

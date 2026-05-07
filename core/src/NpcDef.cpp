@@ -1,6 +1,14 @@
 #include "NpcDef.h"
 
-#include <iostream>
+#include <stdexcept>
+#include <string>
+
+static std::runtime_error unknownOpcodeError(const char* parserName, int opcode, int position) {
+    return std::runtime_error(
+        std::string(parserName) + ": unknown opcode " + std::to_string(opcode) +
+        " at buffer pos " + std::to_string(position)
+    );
+}
 
 NpcDef NpcDef::parse(Buffer& buf) {
     NpcDef def;
@@ -87,9 +95,7 @@ NpcDef NpcDef::parse(Buffer& buf) {
             case 107: def.interactable = false; break;
 
             default:
-                std::cerr << "NpcDef: unknown opcode " << opcode
-                          << " at buffer pos " << buf.position() << std::endl;
-                return def;
+                throw unknownOpcodeError("NpcDef", opcode, buf.position());
         }
     }
 
