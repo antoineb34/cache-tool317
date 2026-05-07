@@ -1,5 +1,6 @@
 #include <iostream>
 #include "CacheReader.h"
+#include "DefinitionsLoader.h"
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
@@ -14,5 +15,27 @@ int main(int argc, char* argv[]) {
     }
 
     std::cout << "Cache opened successfully." << std::endl;
+
+    try {
+        Archive defs = reader.readArchive(0, 2);
+        if (defs.size() == 0) {
+            std::cerr << "Failed to read definitions archive." << std::endl;
+            return 1;
+        }
+
+        DefinitionsLoader loader;
+        loader.loadItems(defs);
+        loader.loadNpcs(defs);
+        loader.loadLocs(defs);
+
+        std::cout << "Definitions loaded successfully." << std::endl;
+        std::cout << "Items: " << loader.itemCount() << std::endl;
+        std::cout << "NPCs:  " << loader.npcCount() << std::endl;
+        std::cout << "Locs:  " << loader.locCount() << std::endl;
+    } catch (const std::exception& ex) {
+        std::cerr << "Definition loading failed: " << ex.what() << std::endl;
+        return 1;
+    }
+
     return 0;
 }

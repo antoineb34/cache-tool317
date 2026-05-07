@@ -49,6 +49,13 @@ static void loadDefs(const Archive& archive,
         Buffer buf(dat.data() + offset, size);
         out[i]    = T::parse(buf);
         out[i].id = i;
+        if (!buf.isEmpty()) {
+            throw std::runtime_error(
+                std::string("Definition parser left unread bytes in ") + datName +
+                " at id " + std::to_string(i) +
+                " (" + std::to_string(buf.remaining()) + " bytes remaining)"
+            );
+        }
         offset   += size;
     }
 }
