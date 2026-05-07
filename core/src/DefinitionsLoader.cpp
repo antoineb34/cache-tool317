@@ -86,6 +86,10 @@ void DefinitionsLoader::loadMesAnims(const Archive& archive) {
     loadDefs(archive, ArchiveNames::MESANIM_DAT, ArchiveNames::MESANIM_IDX, "mesanim.dat", "mesanim.idx", mesAnims_);
 }
 
+void DefinitionsLoader::loadMes(const Archive& archive) {
+    loadDefs(archive, ArchiveNames::MES_DAT, ArchiveNames::MES_IDX, "mes.dat", "mes.idx", mes_);
+}
+
 void DefinitionsLoader::loadSpotAnims(const Archive& archive) {
     loadDefs(archive, ArchiveNames::SPOTANIM_DAT, ArchiveNames::SPOTANIM_IDX, "spotanim.dat", "spotanim.idx", spotAnims_);
 }
@@ -162,6 +166,16 @@ const MesAnimDef& DefinitionsLoader::getMesAnim(int id) const {
 
 int DefinitionsLoader::mesAnimCount() const {
     return static_cast<int>(mesAnims_.size());
+}
+
+const MesDef& DefinitionsLoader::getMes(int id) const {
+    if (id < 0 || id >= (int)mes_.size())
+        throw std::out_of_range("MesDef id out of range: " + std::to_string(id));
+    return mes_[id];
+}
+
+int DefinitionsLoader::mesCount() const {
+    return static_cast<int>(mes_.size());
 }
 
 const SpotAnimDef& DefinitionsLoader::getSpotAnim(int id) const {

@@ -8,6 +8,7 @@
 #include "ItemDef.h"
 #include "LocDef.h"
 #include "MesAnimDef.h"
+#include "MesDef.h"
 #include "NpcDef.h"
 #include "SeqDef.h"
 #include "SpotAnimDef.h"
@@ -33,6 +34,9 @@ public:
 
     // load message animation definitions from mesanim.dat + mesanim.idx
     void loadMesAnims(const Archive& archive);
+
+    // load message definitions from mes.dat + mes.idx
+    void loadMes(const Archive& archive);
 
     // load spot animation definitions from spotanim.dat + spotanim.idx
     void loadSpotAnims(const Archive& archive);
@@ -65,6 +69,9 @@ public:
     const MesAnimDef& getMesAnim(int id) const;
     int               mesAnimCount()      const;
 
+    const MesDef& getMes(int id) const;
+    int           mesCount()     const;
+
     const SpotAnimDef& getSpotAnim(int id) const;
     int                spotAnimCount()      const;
 
@@ -84,6 +91,7 @@ private:
     std::vector<FloDef>  flos_;
     std::vector<IdkDef>  idks_;
     std::vector<MesAnimDef> mesAnims_;
+    std::vector<MesDef>  mes_;
     std::vector<SeqDef>  seqs_;
     std::vector<SpotAnimDef> spotAnims_;
     std::vector<VarbitDef> varbits_;
