@@ -10,6 +10,7 @@ target_sources(core PRIVATE
     src/IdkDef.cpp
     src/ItemDef.cpp
     src/LocDef.cpp
+    src/MesAnimDef.cpp
     src/NpcDef.cpp
     src/SeqDef.cpp
     src/SpotAnimDef.cpp

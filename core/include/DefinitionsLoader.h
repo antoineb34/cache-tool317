@@ -7,6 +7,7 @@
 #include "IdkDef.h"
 #include "ItemDef.h"
 #include "LocDef.h"
+#include "MesAnimDef.h"
 #include "NpcDef.h"
 #include "SeqDef.h"
 #include "SpotAnimDef.h"
@@ -29,6 +30,9 @@ public:
 
     // load identity kit definitions from idk.dat + idk.idx
     void loadIdks(const Archive& archive);
+
+    // load message animation definitions from mesanim.dat + mesanim.idx
+    void loadMesAnims(const Archive& archive);
 
     // load spot animation definitions from spotanim.dat + spotanim.idx
     void loadSpotAnims(const Archive& archive);
@@ -58,6 +62,9 @@ public:
     const IdkDef& getIdk(int id) const;
     int           idkCount()     const;
 
+    const MesAnimDef& getMesAnim(int id) const;
+    int               mesAnimCount()      const;
+
     const SpotAnimDef& getSpotAnim(int id) const;
     int                spotAnimCount()      const;
 
@@ -76,6 +83,7 @@ private:
     std::vector<LocDef>  locs_;
     std::vector<FloDef>  flos_;
     std::vector<IdkDef>  idks_;
+    std::vector<MesAnimDef> mesAnims_;
     std::vector<SeqDef>  seqs_;
     std::vector<SpotAnimDef> spotAnims_;
     std::vector<VarbitDef> varbits_;
