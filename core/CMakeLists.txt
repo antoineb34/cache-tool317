@@ -1,0 +1,9 @@
+add_library(core STATIC)
+
+target_sources(core PRIVATE
+    src/core.cpp
+)
+
+target_include_directories(core PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
