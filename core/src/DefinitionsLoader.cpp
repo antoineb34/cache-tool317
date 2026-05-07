@@ -4,27 +4,39 @@
 
 #include "ArchiveNames.h"
 #include "Buffer.h"
-#include "NpcDef.h"
 
-void DefinitionsLoader::loadItems(const Archive& archive) {
-    auto objDat = archive.getFile(ArchiveNames::OBJ_DAT);
-    auto objIdx = archive.getFile(ArchiveNames::OBJ_IDX);
+// generic loader — works for any def type that has a static parse(Buffer&) and an int id field
+template<typename T>
+static void loadDefs(const Archive& archive, uint32_t datHash, uint32_t idxHash, std::vector<T>& out) {
+    auto dat      = archive.getFile(datHash);
+    auto idxData  = archive.getFile(idxHash);
 
-    Buffer idx(objIdx);
-    int count = idx.readUShort();
+    Buffer idx(idxData);
+    int count  = idx.readUShort();
+    int offset = 2; // skip the 2-byte count header at the start of .dat
 
-    // obj.dat also starts with a 2-byte count header, so item data starts at offset 2
-    int offset = 2;
-    items_.resize(count);
+    out.resize(count);
 
     for (int i = 0; i < count; i++) {
         int size = idx.readUShort();
-        Buffer buf(objDat.data() + offset, size);
-        items_[i] = ItemDef::parse(buf);
-        items_[i].id = i;
-        offset += size;
+        Buffer buf(dat.data() + offset, size);
+        out[i]    = T::parse(buf);
+        out[i].id = i;
+        offset   += size;
     }
 }
+
+// --- load methods ---
+
+void DefinitionsLoader::loadItems(const Archive& archive) {
+    loadDefs(archive, ArchiveNames::OBJ_DAT, ArchiveNames::OBJ_IDX, items_);
+}
+
+void DefinitionsLoader::loadNpcs(const Archive& archive) {
+    loadDefs(archive, ArchiveNames::NPC_DAT, ArchiveNames::NPC_IDX, npcs_);
+}
+
+// --- accessors ---
 
 const ItemDef& DefinitionsLoader::getItem(int id) const {
     if (id < 0 || id >= (int)items_.size())
@@ -34,25 +46,6 @@ const ItemDef& DefinitionsLoader::getItem(int id) const {
 
 int DefinitionsLoader::itemCount() const {
     return static_cast<int>(items_.size());
-}
-
-void DefinitionsLoader::loadNpcs(const Archive& archive) {
-    auto npcDat = archive.getFile(ArchiveNames::NPC_DAT);
-    auto npcIdx = archive.getFile(ArchiveNames::NPC_IDX);
-
-    Buffer idx(npcIdx);
-    int count = idx.readUShort();
-
-    int offset = 2;
-    npcs_.resize(count);
-
-    for (int i = 0; i < count; i++) {
-        int size = idx.readUShort();
-        Buffer buf(npcDat.data() + offset, size);
-        npcs_[i] = NpcDef::parse(buf);
-        npcs_[i].id = i;
-        offset += size;
-    }
 }
 
 const NpcDef& DefinitionsLoader::getNpc(int id) const {
