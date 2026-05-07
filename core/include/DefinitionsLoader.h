@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "Archive.h"
+#include "FloDef.h"
 #include "ItemDef.h"
 #include "LocDef.h"
 #include "NpcDef.h"
@@ -20,6 +21,9 @@ public:
     // load location/object definitions from loc.dat + loc.idx
     void loadLocs(const Archive& archive);
 
+    // load floor definitions from flo.dat + flo.idx
+    void loadFlos(const Archive& archive);
+
     // load variable-bit definitions from varbit.dat + varbit.idx
     void loadVarbits(const Archive& archive);
 
@@ -36,6 +40,9 @@ public:
     const LocDef&  getLoc(int id)  const;
     int            locCount()      const;
 
+    const FloDef& getFlo(int id) const;
+    int           floCount()     const;
+
     const VarbitDef& getVarbit(int id) const;
     int              varbitCount()     const;
 
@@ -46,6 +53,7 @@ private:
     std::vector<ItemDef> items_;
     std::vector<NpcDef>  npcs_;
     std::vector<LocDef>  locs_;
+    std::vector<FloDef>  flos_;
     std::vector<VarbitDef> varbits_;
     std::vector<VarpDef>   varps_;
 };

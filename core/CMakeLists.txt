@@ -6,6 +6,7 @@ target_sources(core PRIVATE
     src/Buffer.cpp
     src/CacheReader.cpp
     src/DefinitionsLoader.cpp
+    src/FloDef.cpp
     src/ItemDef.cpp
     src/LocDef.cpp
     src/NpcDef.cpp

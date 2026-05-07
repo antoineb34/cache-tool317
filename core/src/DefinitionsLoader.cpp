@@ -74,6 +74,10 @@ void DefinitionsLoader::loadLocs(const Archive& archive) {
     loadDefs(archive, ArchiveNames::LOC_DAT, ArchiveNames::LOC_IDX, "loc.dat", "loc.idx", locs_);
 }
 
+void DefinitionsLoader::loadFlos(const Archive& archive) {
+    loadDefs(archive, ArchiveNames::FLO_DAT, ArchiveNames::FLO_IDX, "flo.dat", "flo.idx", flos_);
+}
+
 void DefinitionsLoader::loadVarbits(const Archive& archive) {
     loadDefs(archive, ArchiveNames::VARBIT_DAT, ArchiveNames::VARBIT_IDX, "varbit.dat", "varbit.idx", varbits_);
 }
@@ -112,6 +116,16 @@ const LocDef& DefinitionsLoader::getLoc(int id) const {
 
 int DefinitionsLoader::locCount() const {
     return static_cast<int>(locs_.size());
+}
+
+const FloDef& DefinitionsLoader::getFlo(int id) const {
+    if (id < 0 || id >= (int)flos_.size())
+        throw std::out_of_range("FloDef id out of range: " + std::to_string(id));
+    return flos_[id];
+}
+
+int DefinitionsLoader::floCount() const {
+    return static_cast<int>(flos_.size());
 }
 
 const VarbitDef& DefinitionsLoader::getVarbit(int id) const {

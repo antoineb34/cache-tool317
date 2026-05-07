@@ -27,6 +27,7 @@ int main(int argc, char* argv[]) {
         loader.loadItems(defs);
         loader.loadNpcs(defs);
         loader.loadLocs(defs);
+        loader.loadFlos(defs);
         loader.loadVarbits(defs);
         loader.loadVarps(defs);
 
@@ -34,6 +35,7 @@ int main(int argc, char* argv[]) {
         std::cout << "Items: " << loader.itemCount() << std::endl;
         std::cout << "NPCs:  " << loader.npcCount() << std::endl;
         std::cout << "Locs:  " << loader.locCount() << std::endl;
+        std::cout << "Flos:  " << loader.floCount() << std::endl;
         std::cout << "Varbits: " << loader.varbitCount() << std::endl;
         std::cout << "Varps: " << loader.varpCount() << std::endl;
     } catch (const std::exception& ex) {
