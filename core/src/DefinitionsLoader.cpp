@@ -86,6 +86,10 @@ void DefinitionsLoader::loadSpotAnims(const Archive& archive) {
     loadDefs(archive, ArchiveNames::SPOTANIM_DAT, ArchiveNames::SPOTANIM_IDX, "spotanim.dat", "spotanim.idx", spotAnims_);
 }
 
+void DefinitionsLoader::loadSeqs(const Archive& archive) {
+    loadDefs(archive, ArchiveNames::SEQ_DAT, ArchiveNames::SEQ_IDX, "seq.dat", "seq.idx", seqs_);
+}
+
 void DefinitionsLoader::loadVarbits(const Archive& archive) {
     loadDefs(archive, ArchiveNames::VARBIT_DAT, ArchiveNames::VARBIT_IDX, "varbit.dat", "varbit.idx", varbits_);
 }
@@ -154,6 +158,16 @@ const SpotAnimDef& DefinitionsLoader::getSpotAnim(int id) const {
 
 int DefinitionsLoader::spotAnimCount() const {
     return static_cast<int>(spotAnims_.size());
+}
+
+const SeqDef& DefinitionsLoader::getSeq(int id) const {
+    if (id < 0 || id >= (int)seqs_.size())
+        throw std::out_of_range("SeqDef id out of range: " + std::to_string(id));
+    return seqs_[id];
+}
+
+int DefinitionsLoader::seqCount() const {
+    return static_cast<int>(seqs_.size());
 }
 
 const VarbitDef& DefinitionsLoader::getVarbit(int id) const {

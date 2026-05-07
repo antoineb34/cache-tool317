@@ -116,6 +116,7 @@ Opcode-driven parsers are implemented for:
 - `LocDef` from `loc.dat` / `loc.idx`
 - `FloDef` from `flo.dat` / `flo.idx`
 - `IdkDef` from `idk.dat` / `idk.idx`
+- `SeqDef` from `seq.dat` / `seq.idx`
 - `SpotAnimDef` from `spotanim.dat` / `spotanim.idx`
 - `VarbitDef` from `varbit.dat` / `varbit.idx`
 - `VarpDef` from `varp.dat` / `varp.idx`
@@ -132,6 +133,7 @@ Loads parsed definition arrays from the definitions archive.
 - `loadLocs(archive)`, `getLoc(id)`, `locCount()`
 - `loadFlos(archive)`, `getFlo(id)`, `floCount()`
 - `loadIdks(archive)`, `getIdk(id)`, `idkCount()`
+- `loadSeqs(archive)`, `getSeq(id)`, `seqCount()`
 - `loadSpotAnims(archive)`, `getSpotAnim(id)`, `spotAnimCount()`
 - `loadVarbits(archive)`, `getVarbit(id)`, `varbitCount()`
 - `loadVarps(archive)`, `getVarp(id)`, `varpCount()`
@@ -148,6 +150,7 @@ NPCs:  2266
 Locs:  7199
 Flos:  122
 Idks:  84
+Seqs:  2195
 SpotAnims: 408
 Varbits: 627
 Varps: 493
@@ -176,6 +179,11 @@ Observed floor opcodes in this cache:
 Observed identity kit opcodes in this cache:
 ```text
 0 1 2 3 40 50 60
+```
+
+Observed animation sequence opcodes in this cache:
+```text
+0 1 2 3 4 5 6 7 8 9 10 11
 ```
 
 Observed spot animation opcodes in this cache:
@@ -270,6 +278,7 @@ loader.loadNpcs(defs);
 loader.loadLocs(defs);
 loader.loadFlos(defs);
 loader.loadIdks(defs);
+loader.loadSeqs(defs);
 loader.loadSpotAnims(defs);
 loader.loadVarbits(defs);
 loader.loadVarps(defs);
