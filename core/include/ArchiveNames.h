@@ -7,13 +7,13 @@
 // Hash algorithm: hash = (hash * 61 + toupper(c)) - 32
 //
 // Archive 0 (idx0) contains packed JAG sub-archives:
-//   File 1 = title    (login screen assets)
-//   File 2 = config   (game definitions)
+//   File 1 = title       (login screen assets)
+//   File 2 = definitions (item, npc, object, animation defs etc.)
 //   File 3 = interface
-//   File 4 = media    (2D graphics/sprites)
+//   File 4 = media       (2D graphics/sprites)
 //   File 5 = versionlist
 //   File 6 = textures
-//   File 7 = wordenc  (chat filter)
+//   File 7 = wordenc     (chat filter)
 //   File 8 = sounds
 // ============================================================
 
@@ -34,7 +34,7 @@ namespace ArchiveNames {
     constexpr uint32_t INDEX_DAT        = 0x8d00a607; // index.dat     (shared font glyph index)
 
     // --------------------------------------------------------
-    // Archive 0, File 2 — config
+    // Archive 0, File 2 — definitions
     // --------------------------------------------------------
     constexpr uint32_t FLO_DAT          = 0xa276f8ac; // flo.dat       (floor/tile definitions)
     constexpr uint32_t IDK_DAT          = 0x08fd540b; // idk.dat       (identity kit definitions)
@@ -55,7 +55,7 @@ namespace ArchiveNames {
     constexpr uint32_t VARBIT_IDX       = 0xe1500017; // varbit.idx
 
     // --------------------------------------------------------
-    // Archive 0, File 2 — config (unknown names, hashes only)
+    // Archive 0, File 2 — definitions (unknown names, hashes only)
     // --------------------------------------------------------
     constexpr uint32_t UNKNOWN_AE38F79  = 0x0ae38f79; // unknown  22 bytes
     constexpr uint32_t UNKNOWN_A2774214 = 0xa2774214; // unknown  246 bytes (possibly flo.idx)
