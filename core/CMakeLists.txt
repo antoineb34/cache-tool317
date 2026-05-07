@@ -3,6 +3,7 @@ add_library(core STATIC)
 target_sources(core PRIVATE
     src/core.cpp
     src/Archive.cpp
+    src/Buffer.cpp
     src/CacheReader.cpp
 )
 

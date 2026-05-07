@@ -1,4 +1,5 @@
 #include "CacheReader.h"
+#include "Buffer.h"
 
 #include <bzlib.h>
 #include <iostream>
@@ -103,51 +104,52 @@ Archive CacheReader::readArchive(int archiveId, int fileId) {
     std::vector<uint8_t> raw = readFile(archiveId, fileId);
     if (raw.size() < 6) return {};
 
-    // parse outer 6-byte header
-    uint32_t decompSize = ((uint32_t)raw[0] << 16) | ((uint32_t)raw[1] << 8) | raw[2];
-    uint32_t compSize   = ((uint32_t)raw[3] << 16) | ((uint32_t)raw[4] << 8) | raw[5];
+    // parse the outer 6-byte archive header
+    Buffer rawBuf(raw);
+    ArchiveHeader header;
+    header.decompressedSize = rawBuf.readTribyte();
+    header.compressedSize   = rawBuf.readTribyte();
 
-    // get the decompressed data block
+    // get the data block, decompressing the whole archive if needed
     std::vector<uint8_t> data;
-    if (decompSize != compSize) {
-        // whole-archive compressed — decompress everything at once
-        // sub-files inside will NOT be individually compressed
-        data = decompressBzip2(raw.data() + 6, compSize, decompSize);
+    if (header.decompressedSize != header.compressedSize) {
+        // whole-archive compressed — sub-files inside will NOT be individually compressed
+        data = decompressBzip2(raw.data() + 6, header.compressedSize, header.decompressedSize);
     } else {
-        // not whole-archive compressed — data follows the 6-byte header directly
-        // sub-files inside may be individually compressed
+        // not whole-archive compressed — sub-files may be individually compressed
         data.assign(raw.begin() + 6, raw.end());
     }
 
     if (data.size() < 2) return {};
 
-    bool wholeCompressed = (decompSize != compSize);
+    bool wholeCompressed = (header.decompressedSize != header.compressedSize);
 
-    // parse entry table
-    uint16_t numEntries = ((uint16_t)data[0] << 8) | data[1];
-    int tableOffset = 2;
-    int dataOffset  = 2 + numEntries * 10;
+    // parse the entry table
+    Buffer dataBuf(data);
+    uint16_t numEntries = dataBuf.readUShort();
 
+    // read all entries first, data follows after the full table
+    std::vector<ArchiveEntry> entries(numEntries);
+    for (auto& entry : entries) {
+        entry.nameHash         = dataBuf.readInt();
+        entry.decompressedSize = dataBuf.readTribyte();
+        entry.compressedSize   = dataBuf.readTribyte();
+    }
+
+    // now read each sub-file's data
     Archive archive;
-
-    for (int i = 0; i < numEntries; i++) {
-        uint32_t hash  = ((uint32_t)data[tableOffset+0] << 24) | ((uint32_t)data[tableOffset+1] << 16)
-                       | ((uint32_t)data[tableOffset+2] <<  8) |  (uint32_t)data[tableOffset+3];
-        uint32_t dSize = ((uint32_t)data[tableOffset+4] << 16) | ((uint32_t)data[tableOffset+5] <<  8) | data[tableOffset+6];
-        uint32_t cSize = ((uint32_t)data[tableOffset+7] << 16) | ((uint32_t)data[tableOffset+8] <<  8) | data[tableOffset+9];
-        tableOffset += 10;
-
+    for (const auto& entry : entries) {
         std::vector<uint8_t> fileData;
-        if (!wholeCompressed && dSize != cSize) {
+        if (!wholeCompressed && entry.decompressedSize != entry.compressedSize) {
             // sub-file is individually compressed
-            fileData = decompressBzip2(data.data() + dataOffset, cSize, dSize);
+            fileData = decompressBzip2(data.data() + dataBuf.position(), entry.compressedSize, entry.decompressedSize);
         } else {
-            // sub-file is raw (either whole-archive was compressed, or this sub-file is uncompressed)
-            fileData.assign(data.begin() + dataOffset, data.begin() + dataOffset + dSize);
+            // sub-file is raw
+            fileData.assign(data.begin() + dataBuf.position(),
+                            data.begin() + dataBuf.position() + entry.decompressedSize);
         }
-        dataOffset += cSize;
-
-        archive.files[hash] = std::move(fileData);
+        dataBuf.skip(entry.compressedSize);
+        archive.files[entry.nameHash] = std::move(fileData);
     }
 
     return archive;
