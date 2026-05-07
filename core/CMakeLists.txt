@@ -10,6 +10,7 @@ target_sources(core PRIVATE
     src/LocDef.cpp
     src/NpcDef.cpp
     src/VarbitDef.cpp
+    src/VarpDef.cpp
 )
 
 target_include_directories(core PUBLIC

@@ -28,12 +28,14 @@ int main(int argc, char* argv[]) {
         loader.loadNpcs(defs);
         loader.loadLocs(defs);
         loader.loadVarbits(defs);
+        loader.loadVarps(defs);
 
         std::cout << "Definitions loaded successfully." << std::endl;
         std::cout << "Items: " << loader.itemCount() << std::endl;
         std::cout << "NPCs:  " << loader.npcCount() << std::endl;
         std::cout << "Locs:  " << loader.locCount() << std::endl;
         std::cout << "Varbits: " << loader.varbitCount() << std::endl;
+        std::cout << "Varps: " << loader.varpCount() << std::endl;
     } catch (const std::exception& ex) {
         std::cerr << "Definition loading failed: " << ex.what() << std::endl;
         return 1;

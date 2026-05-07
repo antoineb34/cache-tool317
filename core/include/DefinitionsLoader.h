@@ -7,6 +7,7 @@
 #include "LocDef.h"
 #include "NpcDef.h"
 #include "VarbitDef.h"
+#include "VarpDef.h"
 
 class DefinitionsLoader {
 public:
@@ -22,6 +23,9 @@ public:
     // load variable-bit definitions from varbit.dat + varbit.idx
     void loadVarbits(const Archive& archive);
 
+    // load variable-player definitions from varp.dat + varp.idx
+    void loadVarps(const Archive& archive);
+
     // --- accessors ---
     const ItemDef& getItem(int id) const;
     int            itemCount()     const;
@@ -35,9 +39,13 @@ public:
     const VarbitDef& getVarbit(int id) const;
     int              varbitCount()     const;
 
+    const VarpDef& getVarp(int id) const;
+    int            varpCount()     const;
+
 private:
     std::vector<ItemDef> items_;
     std::vector<NpcDef>  npcs_;
     std::vector<LocDef>  locs_;
     std::vector<VarbitDef> varbits_;
+    std::vector<VarpDef>   varps_;
 };

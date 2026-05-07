@@ -78,6 +78,10 @@ void DefinitionsLoader::loadVarbits(const Archive& archive) {
     loadDefs(archive, ArchiveNames::VARBIT_DAT, ArchiveNames::VARBIT_IDX, "varbit.dat", "varbit.idx", varbits_);
 }
 
+void DefinitionsLoader::loadVarps(const Archive& archive) {
+    loadDefs(archive, ArchiveNames::VARP_DAT, ArchiveNames::VARP_IDX, "varp.dat", "varp.idx", varps_);
+}
+
 // --- accessors ---
 
 const ItemDef& DefinitionsLoader::getItem(int id) const {
@@ -118,4 +122,14 @@ const VarbitDef& DefinitionsLoader::getVarbit(int id) const {
 
 int DefinitionsLoader::varbitCount() const {
     return static_cast<int>(varbits_.size());
+}
+
+const VarpDef& DefinitionsLoader::getVarp(int id) const {
+    if (id < 0 || id >= (int)varps_.size())
+        throw std::out_of_range("VarpDef id out of range: " + std::to_string(id));
+    return varps_[id];
+}
+
+int DefinitionsLoader::varpCount() const {
+    return static_cast<int>(varps_.size());
 }
