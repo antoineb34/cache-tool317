@@ -42,11 +42,12 @@ int32_t Buffer::readInt() {
 }
 
 std::string Buffer::readString() {
+    // 317 cache format uses byte value 10 (0x0a) as the string terminator
     std::string result;
-    while (pos < (int)size && data[pos] != 0) {
+    while (pos < (int)size && data[pos] != 10) {
         result += static_cast<char>(data[pos++]);
     }
-    pos++; // skip null terminator
+    pos++; // skip the terminator byte
     return result;
 }
 
