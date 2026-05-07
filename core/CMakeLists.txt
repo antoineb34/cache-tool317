@@ -7,6 +7,7 @@ target_sources(core PRIVATE
     src/CacheReader.cpp
     src/DefinitionsLoader.cpp
     src/ItemDef.cpp
+    src/NpcDef.cpp
 )
 
 target_include_directories(core PUBLIC
