@@ -28,8 +28,6 @@ static std::vector<uint8_t> decompressBzip2(const uint8_t* src, uint32_t srcLen,
     return output;
 }
 
-
-
 bool CacheReader::open(const std::filesystem::path& cachePath) {
     dat.open(cachePath / "main_file_cache.dat", std::ios::binary);
     if (!dat.is_open()) {
