@@ -90,6 +90,10 @@ void DefinitionsLoader::loadMes(const Archive& archive) {
     loadDefs(archive, ArchiveNames::MES_DAT, ArchiveNames::MES_IDX, "mes.dat", "mes.idx", mes_);
 }
 
+void DefinitionsLoader::loadParams(const Archive& archive) {
+    loadDefs(archive, ArchiveNames::PARAM_DAT, ArchiveNames::PARAM_IDX, "param.dat", "param.idx", params_);
+}
+
 void DefinitionsLoader::loadSpotAnims(const Archive& archive) {
     loadDefs(archive, ArchiveNames::SPOTANIM_DAT, ArchiveNames::SPOTANIM_IDX, "spotanim.dat", "spotanim.idx", spotAnims_);
 }
@@ -176,6 +180,16 @@ const MesDef& DefinitionsLoader::getMes(int id) const {
 
 int DefinitionsLoader::mesCount() const {
     return static_cast<int>(mes_.size());
+}
+
+const ParamDef& DefinitionsLoader::getParam(int id) const {
+    if (id < 0 || id >= (int)params_.size())
+        throw std::out_of_range("ParamDef id out of range: " + std::to_string(id));
+    return params_[id];
+}
+
+int DefinitionsLoader::paramCount() const {
+    return static_cast<int>(params_.size());
 }
 
 const SpotAnimDef& DefinitionsLoader::getSpotAnim(int id) const {

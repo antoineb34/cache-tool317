@@ -10,6 +10,7 @@
 #include "MesAnimDef.h"
 #include "MesDef.h"
 #include "NpcDef.h"
+#include "ParamDef.h"
 #include "SeqDef.h"
 #include "SpotAnimDef.h"
 #include "VarbitDef.h"
@@ -37,6 +38,9 @@ public:
 
     // load message definitions from mes.dat + mes.idx
     void loadMes(const Archive& archive);
+
+    // load parameter definitions from param.dat + param.idx
+    void loadParams(const Archive& archive);
 
     // load spot animation definitions from spotanim.dat + spotanim.idx
     void loadSpotAnims(const Archive& archive);
@@ -72,6 +76,9 @@ public:
     const MesDef& getMes(int id) const;
     int           mesCount()     const;
 
+    const ParamDef& getParam(int id) const;
+    int             paramCount()     const;
+
     const SpotAnimDef& getSpotAnim(int id) const;
     int                spotAnimCount()      const;
 
@@ -92,6 +99,7 @@ private:
     std::vector<IdkDef>  idks_;
     std::vector<MesAnimDef> mesAnims_;
     std::vector<MesDef>  mes_;
+    std::vector<ParamDef> params_;
     std::vector<SeqDef>  seqs_;
     std::vector<SpotAnimDef> spotAnims_;
     std::vector<VarbitDef> varbits_;

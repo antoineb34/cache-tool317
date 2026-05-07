@@ -31,6 +31,7 @@ int main(int argc, char* argv[]) {
         loader.loadIdks(defs);
         loader.loadMesAnims(defs);
         loader.loadMes(defs);
+        loader.loadParams(defs);
         loader.loadSeqs(defs);
         loader.loadSpotAnims(defs);
         loader.loadVarbits(defs);
@@ -44,6 +45,7 @@ int main(int argc, char* argv[]) {
         std::cout << "Idks:  " << loader.idkCount() << std::endl;
         std::cout << "MesAnims: " << loader.mesAnimCount() << std::endl;
         std::cout << "Mes:   " << loader.mesCount() << std::endl;
+        std::cout << "Params: " << loader.paramCount() << std::endl;
         std::cout << "Seqs:  " << loader.seqCount() << std::endl;
         std::cout << "SpotAnims: " << loader.spotAnimCount() << std::endl;
         std::cout << "Varbits: " << loader.varbitCount() << std::endl;

@@ -118,6 +118,7 @@ Opcode-driven parsers are implemented for:
 - `IdkDef` from `idk.dat` / `idk.idx`
 - `MesAnimDef` from `mesanim.dat` / `mesanim.idx`
 - `MesDef` from `mes.dat` / `mes.idx`
+- `ParamDef` from `param.dat` / `param.idx`
 - `SeqDef` from `seq.dat` / `seq.idx`
 - `SpotAnimDef` from `spotanim.dat` / `spotanim.idx`
 - `VarbitDef` from `varbit.dat` / `varbit.idx`
@@ -137,6 +138,7 @@ Loads parsed definition arrays from the definitions archive.
 - `loadIdks(archive)`, `getIdk(id)`, `idkCount()`
 - `loadMesAnims(archive)`, `getMesAnim(id)`, `mesAnimCount()`
 - `loadMes(archive)`, `getMes(id)`, `mesCount()`
+- `loadParams(archive)`, `getParam(id)`, `paramCount()`
 - `loadSeqs(archive)`, `getSeq(id)`, `seqCount()`
 - `loadSpotAnims(archive)`, `getSpotAnim(id)`, `spotAnimCount()`
 - `loadVarbits(archive)`, `getVarbit(id)`, `varbitCount()`
@@ -156,6 +158,7 @@ Flos:  122
 Idks:  84
 MesAnims: 20
 Mes:   44
+Params: 106
 Seqs:  2195
 SpotAnims: 408
 Varbits: 627
@@ -193,6 +196,11 @@ Observed message animation opcodes in this cache:
 ```
 
 Observed message opcodes in this cache:
+```text
+0
+```
+
+Observed parameter opcodes in this cache:
 ```text
 0
 ```
@@ -296,6 +304,7 @@ loader.loadFlos(defs);
 loader.loadIdks(defs);
 loader.loadMesAnims(defs);
 loader.loadMes(defs);
+loader.loadParams(defs);
 loader.loadSeqs(defs);
 loader.loadSpotAnims(defs);
 loader.loadVarbits(defs);

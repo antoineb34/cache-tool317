@@ -13,6 +13,7 @@ target_sources(core PRIVATE
     src/MesAnimDef.cpp
     src/MesDef.cpp
     src/NpcDef.cpp
+    src/ParamDef.cpp
     src/SeqDef.cpp
     src/SpotAnimDef.cpp
     src/VarbitDef.cpp
