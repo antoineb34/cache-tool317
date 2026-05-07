@@ -114,8 +114,12 @@ Opcode-driven parsers are implemented for:
 - `ItemDef` from `obj.dat` / `obj.idx`
 - `NpcDef` from `npc.dat` / `npc.idx`
 - `LocDef` from `loc.dat` / `loc.idx`
+- `FloDef` from `flo.dat` / `flo.idx`
+- `VarbitDef` from `varbit.dat` / `varbit.idx`
+- `VarpDef` from `varp.dat` / `varp.idx`
 
 Each parser lives in `core/include/<Name>.h` and `core/src/<Name>.cpp`.
+All definition parsers are strict: unknown opcodes throw a `std::runtime_error` instead of returning a partial definition.
 
 ### `core/include/DefinitionsLoader.h` + `DefinitionsLoader.cpp`
 Loads parsed definition arrays from the definitions archive.
@@ -124,10 +128,25 @@ Loads parsed definition arrays from the definitions archive.
 - `loadItems(archive)`, `getItem(id)`, `itemCount()`
 - `loadNpcs(archive)`, `getNpc(id)`, `npcCount()`
 - `loadLocs(archive)`, `getLoc(id)`, `locCount()`
+- `loadFlos(archive)`, `getFlo(id)`, `floCount()`
+- `loadVarbits(archive)`, `getVarbit(id)`, `varbitCount()`
+- `loadVarps(archive)`, `getVarp(id)`, `varpCount()`
 
-The shared loader validates that requested `.dat` / `.idx` files exist and that indexed entry sizes stay inside the data file. Missing or malformed definition files should throw a clear `std::runtime_error` instead of crashing through `Buffer`.
+The shared loader validates that requested `.dat` / `.idx` files exist, that indexed entry sizes stay inside the data file, and that each parser consumes the full indexed entry. Missing, malformed, partially parsed, or unknown-opcode definition files should throw a clear `std::runtime_error` instead of crashing through `Buffer`.
 
-### LocDef Verification
+### Definition Verification
+The runnable tool now verifies all implemented definition parsers by loading archive `0,2` and printing counts:
+```text
+Cache opened successfully.
+Definitions loaded successfully.
+Items: 5553
+NPCs:  2266
+Locs:  7199
+Flos:  122
+Varbits: 627
+Varps: 493
+```
+
 `loadLocs()` has been tested against the bundled cache:
 - `loc.dat` size: 294,680 bytes
 - `loc.idx` size: 14,400 bytes
@@ -142,6 +161,26 @@ Observed loc opcodes in this cache:
 ```
 
 All observed loc opcodes are currently handled by `LocDef::parse`.
+
+Observed floor opcodes in this cache:
+```text
+0 1 2 3 5 6 7
+```
+
+Observed varbit opcodes in this cache:
+```text
+0 1
+```
+
+Observed varp opcodes in this cache:
+```text
+0 5
+```
+
+Useful transform relationship:
+- Some `LocDef` and `NpcDef` entries use `varbitID` or `varpID` plus an `overrides` list.
+- `VarbitDef` maps a varbit id to a backing `varpId` plus a bit range (`leastSignificantBit`..`mostSignificantBit`).
+- Example from the bundled cache: loc `2452` (`airtemple_ruined`) uses `varbitID=607` with overrides `[7103, 7104]`; varbit `607` reads bit `0` from varp `491`.
 
 ---
 
@@ -213,9 +252,12 @@ DefinitionsLoader loader;
 loader.loadItems(defs);
 loader.loadNpcs(defs);
 loader.loadLocs(defs);
+loader.loadFlos(defs);
+loader.loadVarbits(defs);
+loader.loadVarps(defs);
 ```
 
-Map work will need GZIP decompression for idx4 files, then parsers for terrain/location placement data.
+Map work will need GZIP decompression for idx4 files, then parsers for terrain/location placement data. `FloDef`, `LocDef`, `VarbitDef`, and `VarpDef` are now available to support terrain colors/textures and object transform resolution.
 
 ---
 
