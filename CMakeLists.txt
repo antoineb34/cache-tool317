@@ -12,7 +12,9 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 find_package(BZip2 REQUIRED)
 find_package(ZLIB REQUIRED)
+find_package(SDL3 REQUIRED CONFIG)
+find_package(OpenGL REQUIRED)
 
 add_subdirectory(core)
 add_subdirectory(tool)
-# add_subdirectory(client)  # uncomment when we start the client
+add_subdirectory(client)

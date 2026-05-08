@@ -24,9 +24,9 @@ cache-tool/
 ├── core/               ← shared library (used by both tool and client)
 │   ├── include/        ← all header files (.h)
 │   └── src/            ← all source files (.cpp)
-├── tool/               ← the cache editor (runnable)
+├── tool/               ← CLI/debug cache inspection tool
 │   └── src/main.cpp
-├── client/             ← game client (not started yet)
+├── client/             ← windowed game-client shell
 ├── third_party/        ← external libraries
 ├── cache/              ← the actual 317 cache files (gitignored)
 └── build/              ← cmake build output (gitignored)
@@ -37,12 +37,27 @@ cache-tool/
 ## Build System
 - **CMake 3.20+**, **C++20**, **GCC**
 - To build: `cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON && cmake --build build`
-- Binary output: `build/bin/tool`
-- Run: `./build/bin/tool ./cache`
+- Binary outputs:
+  - `build/bin/tool` — CLI/debug cache inspection tool
+  - `build/bin/client` — windowed game-client shell
+- Run CLI tool: `./build/bin/tool ./cache`
+- Run client shell: `./build/bin/client ./cache`
+- Run a specific client region: `./build/bin/client ./cache --region 12345`
+- Headless client smoke test: `env SDL_VIDEODRIVER=offscreen ./build/bin/client ./cache --smoke-test`
 
 **External libs linked:**
 - `BZip2` (system, found via `find_package(BZip2 REQUIRED)`)
-- GLFW + OpenGL + Dear ImGui — **not yet added**, planned for the tool GUI
+- `ZLIB` (system, found via `find_package(ZLIB REQUIRED)`)
+- `SDL3` (system, found via `find_package(SDL3 REQUIRED CONFIG)`)
+- OpenGL — used by the client shell for the current render path
+- Dear ImGui — **not yet added**, deferred until after the game renderer exists
+
+Long-term client stack:
+- `SDL3` owns the window, input, events, fullscreen/window mode, and later audio/controller support.
+- `OpenGL` owns real rendering for maps, models, sprites, and UI composition.
+- `Dear ImGui` is reserved for later editor-only panels after the playable/rendered client path is established.
+
+Current priority is game rendering first. Editor/tool UI remains a future module, not the next focus.
 
 ---
 
@@ -333,6 +348,53 @@ Useful transform relationship:
 - `VarbitDef` maps a varbit id to a backing `varpId` plus a bit range (`leastSignificantBit`..`mostSignificantBit`).
 - Example from the bundled cache: loc `2452` (`airtemple_ruined`) uses `varbitID=607` with overrides `[7103, 7104]`; varbit `607` reads bit `0` from varp `491`.
 
+### Client Shell
+Initial windowed client shell is implemented in `client/` using SDL3.
+
+Current behavior:
+- `build/bin/client [cache path]` opens a window.
+- Default cache path is `./cache`.
+- Startup loads the definitions archive pieces needed by the renderer (`loc` + `flo`), loads versionlist, and loads a 3x3 region area centered on region `12850` by default.
+- The client uses an SDL3-created OpenGL context.
+- Play mode renders decoded terrain height maps as OpenGL triangle strips, colored from `flo.dat`.
+- Neighboring regions are placed by world-region offsets so the 3x3 area forms one continuous terrain surface.
+- Region id can be selected at launch with `--region <id>` or `--region=<id>`.
+- Start screen supports keyboard mode switching:
+  - `P` enters play mode.
+  - `Escape` returns to start, or quits from start.
+- Play-mode camera controls:
+  - `WASD` / arrow keys move a temporary player marker relative to the camera direction.
+  - Camera follows behind/above the marker and tracks the terrain height under it.
+  - `Q` / `E` rotate the follow camera around the marker.
+  - `+` / `-` zoom the camera.
+  - Left mouse drag rotates/pitches the camera.
+  - `1` / `2` / `3` / `4` switch terrain planes.
+  - `G` toggles terrain grid lines.
+  - `F` toggles wireframe terrain.
+- `--smoke-test` initializes, loads the cache preview, renders one frame, and exits for headless verification.
+
+This is intentionally still a shell. It proves the client executable, event loop, renderer, cache loading path, and first region-preview surface. The CLI `tool` remains available for detailed cache/debug inspection.
+
+Future client/editor split:
+```text
+core
+  cache parsing / cache writing / definitions / map decode
+
+client_runtime
+  SDL3 window/input
+  OpenGL renderer
+  asset manager
+  world state
+
+client
+  normal deployable client build
+
+editor_client
+  same runtime with Dear ImGui editor layer enabled
+```
+
+For now there is one `client` executable while the game rendering path is being established. Editor work is deferred; when it returns, editor-only code should be isolated so the normal client can be built without editor access compiled in.
+
 ---
 
 ## 317 Cache Format — Key Knowledge
@@ -389,12 +451,19 @@ for (char c : name)
 
 ### Compression
 - Jagex BZIP2 is standard BZIP2 **without** the `BZh1` header — prepend it before decompressing
-- Models (idx1) and animations (idx2) use **GZIP** — not yet implemented
+- Raw compressed cache files such as maps, models, and animations use **GZIP**; GZIP decompression is implemented in `CacheReader` via zlib.
 
 ---
 
 ## What's Next
-The immediate next step is improving map decode inspection and preparing it for the future client.
+The project is now moving from map/data inspection into game rendering. The SDL 2D renderer placeholder has been replaced with an SDL3-created OpenGL context, and play mode now renders a 3x3 decoded terrain area. The immediate next step is improving that world render path into something closer to a playable scene.
+
+Near-term game-rendering plan:
+1. Tune follow-camera/player movement until region navigation feels sane.
+2. Add object placement debug markers in 3D so decoded map objects can be verified against terrain.
+3. Decode/render models from `idx1` so objects/NPCs can become real geometry instead of markers.
+4. Add player/world navigation controls.
+5. Keep editor ideas in mind, but do not add Dear ImGui/editor panels until the game renderer has a useful base.
 
 To get the parsed definitions archive:
 ```cpp
@@ -414,7 +483,7 @@ loader.loadVarbits(defs);
 loader.loadVarps(defs);
 ```
 
-GZIP decompression and first-pass terrain/object placement parsing are now implemented. `FloDef`, `LocDef`, `VarbitDef`, and `VarpDef` are available to support terrain colors/textures and object transform resolution.
+GZIP decompression and first-pass terrain/object placement parsing are implemented. `FloDef`, `LocDef`, `VarbitDef`, and `VarpDef` are available to support terrain colors/textures and object transform resolution.
 
 Use `VersionList::mapIndex()` to map a region id to the `idx4` file ids:
 ```cpp
@@ -427,9 +496,8 @@ const MapIndexEntry* entry = versionList.findMapRegion(regionId);
 ---
 
 ## Planned but Not Started
-- GUI (GLFW + OpenGL + Dear ImGui) for the tool
 - Model viewer (renders idx1 model files)
-- Map viewer (renders idx4 map files)
-- Game client (`client/` folder exists but is empty)
-- GZIP decompression (needed for models and animations)
+- Real map/game viewer controls beyond the first terrain camera
+- Playable game-client runtime
+- Dear ImGui editor panels
 - Writing/modifying cache files
