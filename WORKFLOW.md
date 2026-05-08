@@ -176,6 +176,13 @@ opcode 144: underlayId=63
 opcode 1: explicit height byte 1 -> height step 0
 ```
 
+First-pass rendering is implemented as a modular 2D region renderer:
+```bash
+./build/bin/tool ./cache 12850 render2d /tmp/region_12850.ppm 0 8
+```
+
+This writes a 512x512 PPM for one 64x64 plane at scale 8. Terrain colors come from `flo.dat`; object placements are drawn over the floor. This is intentionally a simple visual verification step before full 3D/model rendering.
+
 Verified examples:
 ```text
 Region 12850: terrain file 382, object file 383, 4505 object placements

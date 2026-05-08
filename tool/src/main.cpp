@@ -10,6 +10,7 @@
 #include "DefinitionsLoader.h"
 #include "VersionList.h"
 #include "MapRegion.h"
+#include "RegionRenderer2D.h"
 
 static std::string lower(std::string value) {
     std::transform(value.begin(), value.end(), value.begin(),
@@ -164,7 +165,8 @@ static void printTerrainEntry(const Tile& tile, const DefinitionsLoader& loader,
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        std::cerr << "Usage: tool <path to cache folder> [region id] [object filter]" << std::endl;
+        std::cerr << "Usage: tool <path to cache folder> [region id] [object filter]\n"
+                  << "       tool <path to cache folder> <region id> render2d [output.ppm] [plane] [scale]\n";
         return 1;
     }
 
@@ -192,6 +194,25 @@ int main(int argc, char* argv[]) {
         MapRegion region = MapRegion::load(reader, vList, regionId);
         int baseX = (region.regionId() >> 8) * 64;
         int baseY = (region.regionId() & 0xff) * 64;
+
+        if (objectFilter == "render2d") {
+            std::string outputPath = "region_" + std::to_string(regionId) + ".ppm";
+            if (argc >= 5)
+                outputPath = argv[4];
+            int plane = argc >= 6 ? std::stoi(argv[5]) : 0;
+            int scale = argc >= 7 ? std::stoi(argv[6]) : 8;
+
+            RegionImage image = RegionRenderer2D::render(region, loader, plane, scale);
+            image.savePpm(outputPath);
+
+            std::cout << "Rendered region " << regionId << " plane " << plane << "\n";
+            std::cout << "  base world coord: (" << baseX << "," << baseY << ")\n";
+            std::cout << "  output: " << outputPath << "\n";
+            std::cout << "  size: " << image.width() << "x" << image.height() << "\n";
+            std::cout << "  terrain tiles: 16384 (64x64x4)\n";
+            std::cout << "  object placements: " << region.objects().getObjects().size() << "\n";
+            return 0;
+        }
 
         std::cout << "Region " << region.regionId() << " map decode\n";
         std::cout << "  base world coord: (" << baseX << "," << baseY << ")\n";
