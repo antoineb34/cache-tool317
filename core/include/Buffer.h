@@ -18,6 +18,7 @@ public:
     uint32_t    readTribyte();    // 3 bytes unsigned
     int32_t     readInt();        // 4 bytes signed
     std::string readString();     // null-terminated string
+    uint32_t    readSmart();
 
     void skip(int n);                                           // advance position by n bytes
     int  position() const { return pos; }                      // current read position

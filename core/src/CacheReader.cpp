@@ -1,6 +1,7 @@
 #include "CacheReader.h"
 #include "Buffer.h"
 
+#include <zlib.h>
 #include <array>
 #include <bzlib.h>
 #include <iostream>
@@ -27,6 +28,33 @@ static std::vector<uint8_t> decompressBzip2(const uint8_t* src, uint32_t srcLen,
     }
     return output;
 }
+// decompresses a GZIP block using zlib
+static std::vector<uint8_t> decompressGzip(const uint8_t* src, uint32_t srcLen) {
+    z_stream strm = {};
+    strm.next_in = const_cast<uint8_t*>(src);
+    strm.avail_in = srcLen;
+
+    // windowBits 15 + 16 enables gzip header detection
+    if (inflateInit2(&strm, 15 + 16) != Z_OK) return {};
+
+    std::vector<uint8_t> out;
+    uint8_t buf[4096];
+    int ret;
+    do {
+        strm.next_out = buf;
+        strm.avail_out = sizeof(buf);
+        ret = inflate(&strm, Z_NO_FLUSH);
+        
+        size_t have = sizeof(buf) - strm.avail_out;
+        if (have > 0) {
+            out.insert(out.end(), buf, buf + have);
+        }
+    } while (ret == Z_OK);
+
+    inflateEnd(&strm);
+    return (ret == Z_STREAM_END) ? out : std::vector<uint8_t>{};
+}
+
 
 bool CacheReader::open(const std::filesystem::path& cachePath) {
     dat.open(cachePath / "main_file_cache.dat", std::ios::binary);
@@ -150,4 +178,10 @@ Archive CacheReader::readArchive(int archiveId, int fileId) {
     }
 
     return archive;
+}
+
+std::vector<uint8_t> CacheReader::readGzippedFile(int archiveId, int fileId) {
+    std::vector<uint8_t> raw = readFile(archiveId, fileId);
+    if (raw.empty()) return {};
+    return decompressGzip(raw.data(), static_cast<uint32_t>(raw.size()));
 }

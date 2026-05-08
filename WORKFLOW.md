@@ -131,6 +131,42 @@ First map region: regionId=7499 terrainFileId=216 objectFileId=217 flag=0
 
 This is the bridge from a map region id to the actual `idx4` terrain/object file ids.
 
+### Map Decoding
+Initial map decoding is implemented in reusable core classes:
+- `MapTerrain` parses one decompressed idx4 terrain file into 4 planes of 64x64 `Tile`s.
+- `MapObjects` parses one decompressed idx4 object-placement file into `MapObject` placements.
+- `MapRegion::load(reader, versionList, regionId)` connects `map_index` to the terrain/object idx4 files, decompresses them, and returns the decoded terrain + object placements.
+
+Terrain files are GZIP-compressed idx4 files. Terrain decoding is opcode-per-tile:
+```text
+0      end tile, generated/default height
+1      explicit height, followed by 1 height byte, then end tile
+2..49  overlay shape/rotation opcode, followed by 1 overlay id byte
+50..81 tile settings
+82+    underlay id, stored as opcode - 81
+```
+
+Object files are GZIP-compressed idx4 files. Object placement decoding uses unsigned smart integers and deltas:
+```text
+object id delta
+  position delta
+  attributes byte: type = attributes >> 2, rotation = attributes & 3
+  ...
+0 ends placements for that object id
+0 ends the object file
+```
+
+The tool can decode a region directly:
+```bash
+./build/bin/tool ./cache 12850
+```
+
+Verified examples:
+```text
+Region 12850: terrain file 382, object file 383, 4505 object placements
+Region 12345: terrain file 632, object file 633, 1815 object placements
+```
+
 ### Definition Parsers
 Opcode-driven parsers are implemented for:
 - `ItemDef` from `obj.dat` / `obj.idx`
@@ -313,7 +349,7 @@ for (char c : name)
 ---
 
 ## What's Next
-The immediate next step is **maps**: reading idx4 map files and connecting them to loc/object placement.
+The immediate next step is improving map decode inspection and preparing it for the future client.
 
 To get the parsed definitions archive:
 ```cpp
@@ -333,7 +369,7 @@ loader.loadVarbits(defs);
 loader.loadVarps(defs);
 ```
 
-Map work will need GZIP decompression for idx4 files, then parsers for terrain/location placement data. `FloDef`, `LocDef`, `VarbitDef`, and `VarpDef` are now available to support terrain colors/textures and object transform resolution.
+GZIP decompression and first-pass terrain/object placement parsing are now implemented. `FloDef`, `LocDef`, `VarbitDef`, and `VarpDef` are available to support terrain colors/textures and object transform resolution.
 
 Use `VersionList::mapIndex()` to map a region id to the `idx4` file ids:
 ```cpp

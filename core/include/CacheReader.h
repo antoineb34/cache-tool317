@@ -21,6 +21,7 @@ public:
     // reads and parses a packed JAG sub-archive (archive 0 files)
     // returns an Archive with all sub-files decompressed and indexed by name hash
     Archive readArchive(int archiveId, int fileId);
+    std::vector<uint8_t> readGzippedFile(int archiveId, int fileId);
 
 private:
     // reads a single 6-byte index entry from an idx file

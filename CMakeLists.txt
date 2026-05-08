@@ -11,6 +11,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 find_package(BZip2 REQUIRED)
+find_package(ZLIB REQUIRED)
 
 add_subdirectory(core)
 add_subdirectory(tool)

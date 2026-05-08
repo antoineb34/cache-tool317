@@ -54,3 +54,9 @@ std::string Buffer::readString() {
 void Buffer::skip(int n) {
     pos += n;
 }
+
+uint32_t Buffer::readSmart() {
+    uint8_t value = data[pos];
+    if (value < 128) return readByte();
+    return readUShort() - 32768;
+}

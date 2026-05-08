@@ -19,10 +19,13 @@ target_sources(core PRIVATE
     src/VarbitDef.cpp
     src/VarpDef.cpp
     src/VersionList.cpp
+    src/MapTerrain.cpp
+    src/MapObjects.cpp
+    src/MapRegion.cpp
 )
 
 target_include_directories(core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_link_libraries(core PUBLIC BZip2::BZip2)
+target_link_libraries(core PUBLIC BZip2::BZip2 ZLIB::ZLIB)
