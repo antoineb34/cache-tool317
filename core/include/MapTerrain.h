@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
+
 #include "Buffer.h"
 
 struct Tile {
@@ -10,6 +12,9 @@ struct Tile {
     uint8_t overlayRotation = 0;
     uint8_t underlayId = 0;
     uint8_t settings = 0;
+    int byteStart = 0;
+    int byteEnd = 0;
+    std::vector<uint8_t> bytes;
 };
 
 class MapTerrain {

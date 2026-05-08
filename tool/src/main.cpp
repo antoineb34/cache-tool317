@@ -98,6 +98,70 @@ static void printObjectEntry(const MapObject& obj, const LocDef& loc, int baseX,
               << "\n";
 }
 
+static std::string floorName(const DefinitionsLoader& loader, uint8_t underlayId) {
+    if (underlayId == 0)
+        return "none";
+
+    try {
+        return loader.getFlo(underlayId - 1).name;
+    } catch (...) {
+        return "unknown";
+    }
+}
+
+static void printTerrainByteDecode(const Tile& tile) {
+    std::size_t i = 0;
+    while (i < tile.bytes.size()) {
+        uint8_t opcode = tile.bytes[i++];
+        std::cout << "      opcode " << static_cast<int>(opcode) << ": ";
+
+        if (opcode == 0) {
+            std::cout << "end tile, generated/default height\n";
+        } else if (opcode == 1) {
+            if (i >= tile.bytes.size()) {
+                std::cout << "explicit height but missing height byte\n";
+                return;
+            }
+            uint8_t heightByte = tile.bytes[i++];
+            int height = heightByte == 1 ? 0 : heightByte;
+            std::cout << "explicit height byte " << static_cast<int>(heightByte)
+                      << " -> height step " << height << "\n";
+        } else if (opcode <= 49) {
+            if (i >= tile.bytes.size()) {
+                std::cout << "overlay opcode but missing overlay id byte\n";
+                return;
+            }
+            uint8_t overlayId = tile.bytes[i++];
+            std::cout << "overlay id " << static_cast<int>(overlayId)
+                      << ", path=" << ((opcode - 2) / 4)
+                      << ", rotation=" << ((opcode - 2) & 3)
+                      << "\n";
+        } else if (opcode <= 81) {
+            std::cout << "settings=" << (opcode - 49) << "\n";
+        } else {
+            std::cout << "underlayId=" << (opcode - 81) << "\n";
+        }
+    }
+}
+
+static void printTerrainEntry(const Tile& tile, const DefinitionsLoader& loader, int baseX, int baseY, int plane, int x, int y) {
+    std::cout << "  tile local=(" << x << "," << y << "," << plane << ")"
+              << " world=(" << baseX + x << "," << baseY + y << "," << plane << ")"
+              << " height=" << tile.height
+              << " underlayId=" << static_cast<int>(tile.underlayId)
+              << " floor=" << floorName(loader, tile.underlayId)
+              << " overlayId=" << static_cast<int>(tile.overlayId)
+              << " overlayPath=" << static_cast<int>(tile.overlayPath)
+              << " overlayRotation=" << static_cast<int>(tile.overlayRotation)
+              << " settings=" << static_cast<int>(tile.settings)
+              << "\n";
+
+    std::cout << "    bytes[" << tile.byteStart << ".." << tile.byteEnd << "): "
+              << hexBytes(tile.bytes)
+              << "\n";
+    printTerrainByteDecode(tile);
+}
+
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         std::cerr << "Usage: tool <path to cache folder> [region id] [object filter]" << std::endl;
@@ -136,21 +200,10 @@ int main(int argc, char* argv[]) {
         std::cout << "  terrain tiles: 16384 (64x64x4)\n";
         std::cout << "  object placements: " << region.objects().getObjects().size() << "\n\n";
 
-        std::cout << "Terrain sample, plane 0, y=32\n";
+        std::cout << "Terrain sample with bytes, plane 0, y=32\n";
         for (int i = 30; i < 40; i++) {
             const Tile& t = region.terrain().getTile(0, i, 32);
-            std::string name = "none";
-            if (t.underlayId > 0) {
-                try { name = loader.getFlo(t.underlayId - 1).name; } catch(...) {}
-            }
-            std::cout << "  tile x=" << i
-                      << " y=32"
-                      << " height=" << t.height
-                      << " underlayId=" << static_cast<int>(t.underlayId)
-                      << " floor=" << name
-                      << " overlayId=" << static_cast<int>(t.overlayId)
-                      << " settings=" << static_cast<int>(t.settings)
-                      << "\n";
+            printTerrainEntry(t, loader, baseX, baseY, 0, i, 32);
         }
 
         std::cout << "\nObject placement sample with bytes\n";

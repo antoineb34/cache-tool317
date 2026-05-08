@@ -167,6 +167,15 @@ It can also inspect object placements with raw placement bytes, world coordinate
 ./build/bin/tool ./cache 12850 type=9
 ```
 
+Terrain sample output now includes the raw bytes for each tile and decodes them back into opcodes:
+```text
+bytes[9792..9798): 18 06 32 90 01 01
+opcode 24: overlay id 6, path=5, rotation=2
+opcode 50: settings=1
+opcode 144: underlayId=63
+opcode 1: explicit height byte 1 -> height step 0
+```
+
 Verified examples:
 ```text
 Region 12850: terrain file 382, object file 383, 4505 object placements

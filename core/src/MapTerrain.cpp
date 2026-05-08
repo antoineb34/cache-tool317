@@ -61,6 +61,7 @@ MapTerrain MapTerrain::parse(Buffer& buf, int regionId) {
     for (int plane = 0; plane < 4; plane++) {
         for (int x = 0; x < 64; x++) {
             for (int y = 0; y < 64; y++) {
+                int byteStart = buf.position();
                 while (true) {
                     if (buf.isEmpty())
                         throw std::runtime_error("Terrain data ended while parsing region tile stream");
@@ -72,6 +73,9 @@ MapTerrain MapTerrain::parse(Buffer& buf, int regionId) {
                         } else {
                             terrain.tiles[plane][x][y].height = terrain.tiles[plane - 1][x][y].height - 240;
                         }
+                        terrain.tiles[plane][x][y].byteStart = byteStart;
+                        terrain.tiles[plane][x][y].byteEnd = buf.position();
+                        terrain.tiles[plane][x][y].bytes = buf.slice(byteStart, buf.position());
                         break; // End of tile
                     } else if (opcode == 1) {
                         int height = buf.readByte();
@@ -81,6 +85,9 @@ MapTerrain MapTerrain::parse(Buffer& buf, int regionId) {
                         } else {
                             terrain.tiles[plane][x][y].height = terrain.tiles[plane - 1][x][y].height - height * 8;
                         }
+                        terrain.tiles[plane][x][y].byteStart = byteStart;
+                        terrain.tiles[plane][x][y].byteEnd = buf.position();
+                        terrain.tiles[plane][x][y].bytes = buf.slice(byteStart, buf.position());
                         break; 
                     } else if (opcode <= 49) {
                         terrain.tiles[plane][x][y].overlayId = buf.readByte();
