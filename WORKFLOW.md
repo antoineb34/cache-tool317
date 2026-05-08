@@ -183,6 +183,13 @@ First-pass rendering is implemented as a modular 2D region renderer:
 
 This writes a 512x512 PPM for one 64x64 plane at scale 8. Terrain colors come from `flo.dat`; object placements are drawn over the floor. This is intentionally a simple visual verification step before full 3D/model rendering.
 
+Render layers can be selected with the final argument:
+```bash
+./build/bin/tool ./cache 12850 render2d region_12850_all.ppm 0 8 all
+./build/bin/tool ./cache 12850 render2d region_12850_terrain.ppm 0 8 terrain
+./build/bin/tool ./cache 12850 render2d region_12850_objects.ppm 0 8 objects
+```
+
 The 2D renderer draws object placement types differently:
 ```text
 type 0    straight wall edge, using rotation

@@ -1,6 +1,7 @@
 #include "RegionRenderer2D.h"
 
 #include <algorithm>
+#include <cctype>
 #include <fstream>
 #include <stdexcept>
 
@@ -181,7 +182,36 @@ void RegionRenderer2D::drawObject(RegionImage& image, const MapObject& obj, cons
     drawMarker(image, obj.x, obj.y, scale, decorColor);
 }
 
-RegionImage RegionRenderer2D::render(const MapRegion& region, const DefinitionsLoader& defs, int plane, int scale) {
+static std::string normalizeLayerName(std::string name) {
+    std::transform(name.begin(), name.end(), name.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return name;
+}
+
+RenderLayer RegionRenderer2D::parseLayer(const std::string& name) {
+    std::string normalized = normalizeLayerName(name);
+    if (normalized == "all")
+        return RenderLayer::All;
+    if (normalized == "terrain")
+        return RenderLayer::Terrain;
+    if (normalized == "objects")
+        return RenderLayer::Objects;
+    throw std::runtime_error("Unknown render2d layer: " + name);
+}
+
+std::string RegionRenderer2D::layerName(RenderLayer layer) {
+    switch (layer) {
+        case RenderLayer::All:
+            return "all";
+        case RenderLayer::Terrain:
+            return "terrain";
+        case RenderLayer::Objects:
+            return "objects";
+    }
+    return "unknown";
+}
+
+RegionImage RegionRenderer2D::render(const MapRegion& region, const DefinitionsLoader& defs, int plane, int scale, RenderLayer layer) {
     if (plane < 0 || plane >= 4)
         throw std::runtime_error("Render plane must be between 0 and 3");
     if (scale < 1)
@@ -189,18 +219,25 @@ RegionImage RegionRenderer2D::render(const MapRegion& region, const DefinitionsL
 
     RegionImage image(64 * scale, 64 * scale);
 
-    for (int x = 0; x < 64; x++) {
-        for (int y = 0; y < 64; y++) {
-            const Tile& tile = region.terrain().getTile(plane, x, y);
-            Rgb color = shadeByHeight(floorColor(defs, tile), tile.height);
-            int imageY = 63 - y;
-            for (int px = 0; px < scale; px++) {
-                for (int py = 0; py < scale; py++) {
-                    image.setPixel(x * scale + px, imageY * scale + py, color);
+    if (layer == RenderLayer::Objects) {
+        fillRect(image, 0, 0, image.width(), image.height(), {190, 190, 180});
+    } else {
+        for (int x = 0; x < 64; x++) {
+            for (int y = 0; y < 64; y++) {
+                const Tile& tile = region.terrain().getTile(plane, x, y);
+                Rgb color = shadeByHeight(floorColor(defs, tile), tile.height);
+                int imageY = 63 - y;
+                for (int px = 0; px < scale; px++) {
+                    for (int py = 0; py < scale; py++) {
+                        image.setPixel(x * scale + px, imageY * scale + py, color);
+                    }
                 }
             }
         }
     }
+
+    if (layer == RenderLayer::Terrain)
+        return image;
 
     for (const MapObject& obj : region.objects().getObjects()) {
         if (obj.z != plane)

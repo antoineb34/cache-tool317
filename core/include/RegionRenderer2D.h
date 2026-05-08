@@ -13,6 +13,12 @@ struct Rgb {
     uint8_t b = 0;
 };
 
+enum class RenderLayer {
+    All,
+    Terrain,
+    Objects
+};
+
 class RegionImage {
 public:
     RegionImage(int width, int height);
@@ -31,7 +37,9 @@ private:
 
 class RegionRenderer2D {
 public:
-    static RegionImage render(const MapRegion& region, const DefinitionsLoader& defs, int plane = 0, int scale = 8);
+    static RegionImage render(const MapRegion& region, const DefinitionsLoader& defs, int plane = 0, int scale = 8, RenderLayer layer = RenderLayer::All);
+    static RenderLayer parseLayer(const std::string& name);
+    static std::string layerName(RenderLayer layer);
 
 private:
     static Rgb floorColor(const DefinitionsLoader& defs, const Tile& tile);
