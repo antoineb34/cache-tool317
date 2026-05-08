@@ -167,6 +167,13 @@ It can also inspect object placements with raw placement bytes, world coordinate
 ./build/bin/tool ./cache 12850 type=9
 ```
 
+To inspect one exact world tile from a render:
+```bash
+./build/bin/tool ./cache 12850 tile 3212 3215 0
+```
+
+This prints the terrain bytes for that tile and every object placement whose footprint touches it.
+
 Terrain sample output now includes the raw bytes for each tile and decodes them back into opcodes:
 ```text
 bytes[9792..9798): 18 06 32 90 01 01

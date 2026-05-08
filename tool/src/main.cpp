@@ -163,10 +163,56 @@ static void printTerrainEntry(const Tile& tile, const DefinitionsLoader& loader,
     printTerrainByteDecode(tile);
 }
 
+static bool objectTouchesTile(const MapObject& obj, const LocDef& loc, int localX, int localY, int plane) {
+    if (obj.z != plane)
+        return false;
+
+    int width = obj.type >= 10 ? std::max(1, loc.width) : 1;
+    int length = obj.type >= 10 ? std::max(1, loc.length) : 1;
+    if (obj.type >= 10 && (obj.rotation & 1) == 1)
+        std::swap(width, length);
+
+    return localX >= obj.x && localX < obj.x + width &&
+           localY >= obj.y && localY < obj.y + length;
+}
+
+static int inspectTile(const MapRegion& region, const DefinitionsLoader& loader, int baseX, int baseY, int worldX, int worldY, int plane) {
+    int localX = worldX - baseX;
+    int localY = worldY - baseY;
+    if (plane < 0 || plane >= 4) {
+        std::cerr << "Tile inspect plane must be between 0 and 3\n";
+        return 1;
+    }
+    if (localX < 0 || localX >= 64 || localY < 0 || localY >= 64) {
+        std::cerr << "World tile (" << worldX << "," << worldY << ") is outside region "
+                  << region.regionId() << " base=(" << baseX << "," << baseY << ")\n";
+        return 1;
+    }
+
+    std::cout << "Tile inspect\n";
+    const Tile& tile = region.terrain().getTile(plane, localX, localY);
+    printTerrainEntry(tile, loader, baseX, baseY, plane, localX, localY);
+
+    std::cout << "\nObjects touching this tile\n";
+    int count = 0;
+    for (const MapObject& obj : region.objects().getObjects()) {
+        const LocDef& loc = loader.getLoc(obj.id);
+        if (!objectTouchesTile(obj, loc, localX, localY, plane))
+            continue;
+
+        printObjectEntry(obj, loc, baseX, baseY);
+        count++;
+    }
+
+    std::cout << "  object count=" << count << "\n";
+    return 0;
+}
+
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         std::cerr << "Usage: tool <path to cache folder> [region id] [object filter]\n"
-                  << "       tool <path to cache folder> <region id> render2d [output.ppm] [plane] [scale] [all|terrain|objects]\n";
+                  << "       tool <path to cache folder> <region id> render2d [output.ppm] [plane] [scale] [all|terrain|objects]\n"
+                  << "       tool <path to cache folder> <region id> tile <worldX> <worldY> [plane]\n";
         return 1;
     }
 
@@ -214,6 +260,15 @@ int main(int argc, char* argv[]) {
             std::cout << "  terrain tiles: 16384 (64x64x4)\n";
             std::cout << "  object placements: " << region.objects().getObjects().size() << "\n";
             return 0;
+        }
+
+        if (objectFilter == "tile") {
+            if (argc < 6)
+                throw std::runtime_error("tile mode requires: <worldX> <worldY> [plane]");
+            int worldX = std::stoi(argv[4]);
+            int worldY = std::stoi(argv[5]);
+            int plane = argc >= 7 ? std::stoi(argv[6]) : 0;
+            return inspectTile(region, loader, baseX, baseY, worldX, worldY, plane);
         }
 
         std::cout << "Region " << region.regionId() << " map decode\n";
