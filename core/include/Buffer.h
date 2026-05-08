@@ -21,6 +21,7 @@ public:
     uint32_t    readSmart();
 
     void skip(int n);                                           // advance position by n bytes
+    std::vector<uint8_t> slice(int start, int end) const;       // copy bytes from [start, end)
     int  position() const { return pos; }                      // current read position
     int  remaining() const { return (int)size - pos; }         // bytes left to read
     bool isEmpty()   const { return pos >= (int)size; }        // nothing left to read

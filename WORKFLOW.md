@@ -161,6 +161,12 @@ The tool can decode a region directly:
 ./build/bin/tool ./cache 12850
 ```
 
+It can also inspect object placements with raw placement bytes, world coordinates, and `loc.def` details:
+```bash
+./build/bin/tool ./cache 12850 range
+./build/bin/tool ./cache 12850 type=9
+```
+
 Verified examples:
 ```text
 Region 12850: terrain file 382, object file 383, 4505 object placements

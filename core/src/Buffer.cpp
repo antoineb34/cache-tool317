@@ -55,6 +55,13 @@ void Buffer::skip(int n) {
     pos += n;
 }
 
+std::vector<uint8_t> Buffer::slice(int start, int end) const {
+    if (start < 0) start = 0;
+    if (end > (int)size) end = size;
+    if (start > end) start = end;
+    return std::vector<uint8_t>(data + start, data + end);
+}
+
 uint32_t Buffer::readSmart() {
     uint8_t value = data[pos];
     if (value < 128) return readByte();
