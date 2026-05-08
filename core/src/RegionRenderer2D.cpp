@@ -77,6 +77,110 @@ Rgb RegionRenderer2D::shadeByHeight(Rgb color, int height) {
     return {apply(color.r), apply(color.g), apply(color.b)};
 }
 
+static int tilePixelX(int tileX, int scale) {
+    return tileX * scale;
+}
+
+static int tilePixelY(int tileY, int scale) {
+    return (63 - tileY) * scale;
+}
+
+static void fillRect(RegionImage& image, int x, int y, int width, int height, Rgb color) {
+    for (int px = x; px < x + width; px++) {
+        for (int py = y; py < y + height; py++) {
+            image.setPixel(px, py, color);
+        }
+    }
+}
+
+static void drawTileFill(RegionImage& image, int tileX, int tileY, int width, int length, int scale, Rgb color) {
+    int margin = scale >= 4 ? 1 : 0;
+    for (int dx = 0; dx < width; dx++) {
+        for (int dy = 0; dy < length; dy++) {
+            int x = tilePixelX(tileX + dx, scale) + margin;
+            int y = tilePixelY(tileY + dy, scale) + margin;
+            fillRect(image, x, y, std::max(1, scale - margin * 2), std::max(1, scale - margin * 2), color);
+        }
+    }
+}
+
+static void drawEdge(RegionImage& image, int tileX, int tileY, int rotation, int scale, Rgb color) {
+    int x = tilePixelX(tileX, scale);
+    int y = tilePixelY(tileY, scale);
+    int thickness = std::max(1, scale / 4);
+
+    switch (rotation & 3) {
+        case 0: // west
+            fillRect(image, x, y, thickness, scale, color);
+            break;
+        case 1: // north
+            fillRect(image, x, y, scale, thickness, color);
+            break;
+        case 2: // east
+            fillRect(image, x + scale - thickness, y, thickness, scale, color);
+            break;
+        case 3: // south
+            fillRect(image, x, y + scale - thickness, scale, thickness, color);
+            break;
+    }
+}
+
+static void drawCorner(RegionImage& image, int tileX, int tileY, int rotation, int scale, Rgb color) {
+    drawEdge(image, tileX, tileY, rotation, scale, color);
+    drawEdge(image, tileX, tileY, rotation + 1, scale, color);
+}
+
+static void drawDiagonal(RegionImage& image, int tileX, int tileY, int rotation, int scale, Rgb color) {
+    int x = tilePixelX(tileX, scale);
+    int y = tilePixelY(tileY, scale);
+    int thickness = std::max(1, scale / 5);
+
+    for (int i = 0; i < scale; i++) {
+        int px = x + i;
+        int py = ((rotation & 1) == 0) ? y + i : y + scale - 1 - i;
+        fillRect(image, px, py, thickness, thickness, color);
+    }
+}
+
+static void drawMarker(RegionImage& image, int tileX, int tileY, int scale, Rgb color) {
+    int size = std::max(1, scale / 2);
+    int x = tilePixelX(tileX, scale) + (scale - size) / 2;
+    int y = tilePixelY(tileY, scale) + (scale - size) / 2;
+    fillRect(image, x, y, size, size, color);
+}
+
+void RegionRenderer2D::drawObject(RegionImage& image, const MapObject& obj, const LocDef& loc, int scale) {
+    Rgb wallColor = loc.name == "null" ? Rgb{15, 15, 15} : Rgb{180, 20, 20};
+    Rgb objectColor = loc.blocksWalk ? Rgb{35, 35, 35} : Rgb{220, 170, 35};
+    Rgb decorColor = loc.name == "null" ? Rgb{70, 70, 70} : Rgb{220, 50, 50};
+
+    if (obj.type == 0) {
+        drawEdge(image, obj.x, obj.y, obj.rotation, scale, wallColor);
+        return;
+    }
+
+    if (obj.type == 2) {
+        drawCorner(image, obj.x, obj.y, obj.rotation, scale, wallColor);
+        return;
+    }
+
+    if (obj.type == 9) {
+        drawDiagonal(image, obj.x, obj.y, obj.rotation, scale, wallColor);
+        return;
+    }
+
+    if (obj.type >= 10) {
+        int width = std::max(1, loc.width);
+        int length = std::max(1, loc.length);
+        if ((obj.rotation & 1) == 1)
+            std::swap(width, length);
+        drawTileFill(image, obj.x, obj.y, width, length, scale, objectColor);
+        return;
+    }
+
+    drawMarker(image, obj.x, obj.y, scale, decorColor);
+}
+
 RegionImage RegionRenderer2D::render(const MapRegion& region, const DefinitionsLoader& defs, int plane, int scale) {
     if (plane < 0 || plane >= 4)
         throw std::runtime_error("Render plane must be between 0 and 3");
@@ -103,31 +207,7 @@ RegionImage RegionRenderer2D::render(const MapRegion& region, const DefinitionsL
             continue;
 
         const LocDef& loc = defs.getLoc(obj.id);
-        Rgb color = loc.name == "null" ? Rgb{35, 35, 35} : Rgb{210, 40, 40};
-        if (obj.type >= 10 && loc.blocksWalk)
-            color = {30, 30, 30};
-        else if (obj.type >= 10)
-            color = {230, 180, 40};
-
-        int width = obj.type >= 10 ? std::max(1, loc.width) : 1;
-        int length = obj.type >= 10 ? std::max(1, loc.length) : 1;
-        if ((obj.rotation & 1) == 1)
-            std::swap(width, length);
-
-        for (int dx = 0; dx < width; dx++) {
-            for (int dy = 0; dy < length; dy++) {
-                int tx = obj.x + dx;
-                int ty = obj.y + dy;
-                int imageY = 63 - ty;
-                for (int px = 1; px < scale - 1; px++) {
-                    for (int py = 1; py < scale - 1; py++) {
-                        image.setPixel(tx * scale + px, imageY * scale + py, color);
-                    }
-                }
-                if (scale == 1)
-                    image.setPixel(tx, imageY, color);
-            }
-        }
+        drawObject(image, obj, loc, scale);
     }
 
     return image;

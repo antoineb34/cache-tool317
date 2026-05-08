@@ -36,4 +36,5 @@ public:
 private:
     static Rgb floorColor(const DefinitionsLoader& defs, const Tile& tile);
     static Rgb shadeByHeight(Rgb color, int height);
+    static void drawObject(RegionImage& image, const MapObject& obj, const LocDef& loc, int scale);
 };

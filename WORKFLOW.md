@@ -183,6 +183,15 @@ First-pass rendering is implemented as a modular 2D region renderer:
 
 This writes a 512x512 PPM for one 64x64 plane at scale 8. Terrain colors come from `flo.dat`; object placements are drawn over the floor. This is intentionally a simple visual verification step before full 3D/model rendering.
 
+The 2D renderer draws object placement types differently:
+```text
+type 0    straight wall edge, using rotation
+type 2    corner wall, using rotation
+type 9    diagonal wall/object line
+type >=10 filled object footprint using loc.def width/length
+other     small center marker
+```
+
 Verified examples:
 ```text
 Region 12850: terrain file 382, object file 383, 4505 object placements

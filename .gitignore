@@ -20,6 +20,9 @@ compile_commands.json
 # Cache files (binary game data, do not commit)
 cache/
 
+# Generated render previews
+region_*.ppm
+
 # IDE
 .vscode/
 .idea/
