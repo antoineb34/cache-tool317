@@ -58,6 +58,7 @@ private:
     void renderRegionObjectModels(const LoadedRegion& loaded);
     void renderObjectModel(const LoadedRegion& loaded, const MapObject& object);
     void renderModelWireframe(const Model& model);
+    void renderModelSolid(const Model& model);
     int selectModelId(const LocDef& loc, int objectType) const;
     void drawObjectBox(float x, float y, float z, float width, float length, float height);
     void drawObjectLine(float x1, float y1, float z1, float x2, float y2, float z2);

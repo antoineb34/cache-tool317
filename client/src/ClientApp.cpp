@@ -26,6 +26,51 @@ Rgb fromRgbInt(int rgb) {
     };
 }
 
+Rgb rsHslToRgb(int hsl) {
+    int hue = (hsl >> 10) & 0x3F;
+    int saturation = (hsl >> 7) & 0x7;
+    int lightness = hsl & 0x7F;
+
+    double h = hue / 64.0 + 0.0078125;
+    double s = saturation / 8.0 + 0.0625;
+    double l = lightness / 128.0;
+
+    double r = l;
+    double g = l;
+    double b = l;
+
+    if (s != 0.0) {
+        double a;
+        if (l < 0.5) {
+            a = l * (1.0 + s);
+        } else {
+            a = (l + s) - (l * s);
+        }
+        double b2 = (2.0 * l) - a;
+        double fRed = h + (1.0 / 3.0);
+        double fBlue = h - (1.0 / 3.0);
+        if (fRed > 1.0) fRed -= 1.0;
+        if (fBlue < 0.0) fBlue += 1.0;
+
+        auto getValue = [](double hue, double a, double b) -> double {
+            if (6.0 * hue < 1.0) return b + (a - b) * 6.0 * hue;
+            if (2.0 * hue < 1.0) return a;
+            if (3.0 * hue < 2.0) return b + (a - b) * ((2.0 / 3.0) - hue) * 6.0;
+            return b;
+        };
+
+        r = getValue(fRed, a, b2);
+        g = getValue(h, a, b2);
+        b = getValue(fBlue, a, b2);
+    }
+
+    return {
+        static_cast<uint8_t>(std::clamp(r * 256.0, 0.0, 255.0)),
+        static_cast<uint8_t>(std::clamp(g * 256.0, 0.0, 255.0)),
+        static_cast<uint8_t>(std::clamp(b * 256.0, 0.0, 255.0))
+    };
+}
+
 float terrainHeight(const Tile& tile) {
     return static_cast<float>(-tile.height) / 32.0f;
 }
@@ -582,8 +627,7 @@ void ClientApp::renderObjectMarkers() {
 
 void ClientApp::renderObjectModels() {
     glDisable(GL_TEXTURE_2D);
-    glLineWidth(1.0f);
-    glColor3f(0.05f, 0.05f, 0.05f);
+    glEnable(GL_DEPTH_TEST);
 
     for (const LoadedRegion& loaded : regions_)
         renderRegionObjectModels(loaded);
@@ -632,7 +676,7 @@ void ClientApp::renderObjectModel(const LoadedRegion& loaded, const MapObject& o
         static_cast<float>(loc.scaleX) / (128.0f * 128.0f),
         -static_cast<float>(loc.scaleY) / (128.0f * 128.0f),
         static_cast<float>(loc.scaleZ) / (128.0f * 128.0f));
-    renderModelWireframe(modelIt->second);
+    renderModelSolid(modelIt->second);
     glPopMatrix();
 }
 
@@ -651,6 +695,23 @@ void ClientApp::renderModelWireframe(const Model& model) {
 
         glVertex3f(static_cast<float>(c.x), static_cast<float>(c.y), static_cast<float>(c.z));
         glVertex3f(static_cast<float>(a.x), static_cast<float>(a.y), static_cast<float>(a.z));
+    }
+    glEnd();
+}
+
+void ClientApp::renderModelSolid(const Model& model) {
+    glBegin(GL_TRIANGLES);
+    for (const ModelTriangle& triangle : model.triangles()) {
+        Rgb color = rsHslToRgb(triangle.color);
+        glColor3ub(color.r, color.g, color.b);
+
+        const ModelVertex& a = model.vertices()[triangle.a];
+        const ModelVertex& b = model.vertices()[triangle.b];
+        const ModelVertex& c = model.vertices()[triangle.c];
+
+        glVertex3f(static_cast<float>(a.x), static_cast<float>(a.y), static_cast<float>(a.z));
+        glVertex3f(static_cast<float>(b.x), static_cast<float>(b.y), static_cast<float>(b.z));
+        glVertex3f(static_cast<float>(c.x), static_cast<float>(c.y), static_cast<float>(c.z));
     }
     glEnd();
 }

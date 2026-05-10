@@ -362,7 +362,7 @@ Current behavior:
   - wall types are drawn as line/edge markers
   - type `10+` objects are drawn as footprint boxes using `LocDef` width/length and placement rotation
   - smaller decoration types are drawn as small posts
-- Decoded `idx1` models are loaded for placed `LocDef.modelIDs` and can be drawn as first-pass wireframe geometry near the player marker.
+- Decoded `idx1` models are loaded for placed `LocDef.modelIDs` and drawn as flat-shaded colored geometry near the player marker.
 - Region id can be selected at launch with `--region <id>` or `--region=<id>`.
 - Start screen supports keyboard mode switching:
   - `P` enters play mode.
@@ -377,7 +377,7 @@ Current behavior:
   - `G` toggles terrain grid lines.
   - `F` toggles wireframe terrain.
   - `O` toggles object debug markers.
-  - `M` toggles object model wireframes.
+  - `M` toggles object model rendering.
 - `--smoke-test` initializes, loads the cache preview, renders one frame, and exits for headless verification.
 
 This is intentionally still a shell. It proves the client executable, event loop, renderer, cache loading path, and first region-preview surface. The CLI `tool` remains available for detailed cache/debug inspection.
@@ -409,7 +409,7 @@ Model 1835: vertices=76 triangles=122 textured=0 bounds x=[-26,57] y=[-85,1] z=[
 Model 2141: vertices=68 triangles=120 textured=5 bounds x=[-48,48] y=[-80,0] z=[-48,48]
 ```
 
-Client play mode now connects object placements to `LocDef.modelIDs`, loads unique selected models from `idx1`, and draws nearby placements as first-pass wireframe geometry. If a loc has `modelTypes`, the placed `MapObject::type` selects the matching model id; untyped locs fall back to their first model id. The debug renderer applies placement rotation plus `LocDef` scale and offset fields. Lighting, face colors, animation, and exact origin/alignment behavior are still pending.
+Client play mode now connects object placements to `LocDef.modelIDs`, loads unique selected models from `idx1`, and draws nearby placements as flat-shaded colored triangles. Model face colors are converted from the RS 16-bit HSL format to RGB using the original client's palette algorithm. If a loc has `modelTypes`, the placed `MapObject::type` selects the matching model id; untyped locs fall back to their first model id. The renderer applies placement rotation plus `LocDef` scale and offset fields. Lighting, animation, and exact origin/alignment behavior are still pending.
 
 Future client/editor split:
 ```text
@@ -497,7 +497,7 @@ The project is now moving from map/data inspection into game rendering. The SDL 
 Near-term game-rendering plan:
 1. Tune follow-camera/player movement until region navigation feels sane.
 2. Improve object-marker shape/orientation checks against known in-game locations.
-3. Improve model placement fidelity: exact origin/alignment behavior, face colors, and culling.
+3. Improve model placement fidelity: exact origin/alignment behavior and culling.
 4. Add player/world navigation controls.
 5. Keep editor ideas in mind, but do not add Dear ImGui/editor panels until the game renderer has a useful base.
 
