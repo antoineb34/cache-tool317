@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <SDL3/SDL.h>
@@ -10,6 +11,7 @@
 #include "AppMode.h"
 #include "DefinitionsLoader.h"
 #include "MapRegion.h"
+#include "Model.h"
 #include "RegionRenderer2D.h"
 
 struct LoadedRegion {
@@ -49,7 +51,20 @@ private:
     void renderTerrainGrid();
     void renderRegionTerrainGrid(const LoadedRegion& loaded);
     void renderPlayerMarker();
+    void renderObjectMarkers();
+    void renderRegionObjectMarkers(const LoadedRegion& loaded);
+    void renderObjectMarker(const LoadedRegion& loaded, const MapObject& object);
+    void renderObjectModels();
+    void renderRegionObjectModels(const LoadedRegion& loaded);
+    void renderObjectModel(const LoadedRegion& loaded, const MapObject& object);
+    void renderModelWireframe(const Model& model);
+    int selectModelId(const LocDef& loc, int objectType) const;
+    void drawObjectBox(float x, float y, float z, float width, float length, float height);
+    void drawObjectLine(float x1, float y1, float z1, float x2, float y2, float z2);
     float terrainHeightAt(float x, float y) const;
+    float cacheYToWorldZ(float cacheY) const;
+    float worldZToCacheY(float worldZ) const;
+    int cacheRotationToWorld(int rotation) const;
     Rgb floorColor(const Tile& tile) const;
 
     std::string cachePath_;
@@ -58,6 +73,8 @@ private:
     bool smokeTest_ = false;
     bool wireframe_ = false;
     bool showGrid_ = false;
+    bool showObjects_ = true;
+    bool showModels_ = true;
     bool mouseLook_ = false;
 
     SDL_Window* window_ = nullptr;
@@ -65,6 +82,7 @@ private:
 
     DefinitionsLoader defs_;
     std::vector<LoadedRegion> regions_;
+    std::unordered_map<int, Model> models_;
     int regionId_ = 12850;
     int regionBaseX_ = 0;
     int regionBaseY_ = 0;

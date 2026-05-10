@@ -10,6 +10,7 @@
 #include "DefinitionsLoader.h"
 #include "VersionList.h"
 #include "MapRegion.h"
+#include "Model.h"
 #include "RegionRenderer2D.h"
 
 static std::string lower(std::string value) {
@@ -208,9 +209,51 @@ static int inspectTile(const MapRegion& region, const DefinitionsLoader& loader,
     return 0;
 }
 
+static int inspectModel(CacheReader& reader, int modelId) {
+    std::vector<uint8_t> modelData = reader.readGzippedFile(1, modelId);
+    if (modelData.empty()) {
+        std::cerr << "Failed to read/decompress model " << modelId << "\n";
+        return 1;
+    }
+
+    Model model = Model::parse(modelData);
+    ModelBounds bounds = model.bounds();
+
+    std::cout << "Model " << modelId << "\n";
+    std::cout << "  raw decompressed bytes: " << modelData.size() << "\n";
+    std::cout << "  vertices: " << model.vertices().size() << "\n";
+    std::cout << "  triangles: " << model.triangles().size() << "\n";
+    std::cout << "  textured triangles: " << model.textureTriangles().size() << "\n";
+    std::cout << "  vertex skins: " << model.vertexSkins().size() << "\n";
+    std::cout << "  bounds x=[" << bounds.minX << "," << bounds.maxX << "]"
+              << " y=[" << bounds.minY << "," << bounds.maxY << "]"
+              << " z=[" << bounds.minZ << "," << bounds.maxZ << "]\n";
+
+    std::cout << "  vertex sample\n";
+    for (std::size_t i = 0; i < std::min<std::size_t>(5, model.vertices().size()); i++) {
+        const ModelVertex& v = model.vertices()[i];
+        std::cout << "    " << i << ": (" << v.x << "," << v.y << "," << v.z << ")\n";
+    }
+
+    std::cout << "  triangle sample\n";
+    for (std::size_t i = 0; i < std::min<std::size_t>(5, model.triangles().size()); i++) {
+        const ModelTriangle& t = model.triangles()[i];
+        std::cout << "    " << i << ": vertices=(" << t.a << "," << t.b << "," << t.c << ")"
+                  << " color=" << t.color
+                  << " renderType=" << t.renderType
+                  << " priority=" << t.priority
+                  << " alpha=" << t.alpha
+                  << " skin=" << t.skin
+                  << "\n";
+    }
+
+    return 0;
+}
+
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         std::cerr << "Usage: tool <path to cache folder> [region id] [object filter]\n"
+                  << "       tool <path to cache folder> model <model id>\n"
                   << "       tool <path to cache folder> <region id> render2d [output.ppm] [plane] [scale] [all|terrain|objects]\n"
                   << "       tool <path to cache folder> <region id> tile <worldX> <worldY> [plane]\n";
         return 1;
@@ -223,6 +266,9 @@ int main(int argc, char* argv[]) {
     }
 
     try {
+        if (argc >= 4 && std::string(argv[2]) == "model")
+            return inspectModel(reader, std::stoi(argv[3]));
+
         Archive defsArchive = reader.readArchive(0, 2);
         DefinitionsLoader loader;
         loader.loadLocs(defsArchive);

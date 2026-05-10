@@ -4,6 +4,7 @@
 #include <cmath>
 #include <iostream>
 #include <stdexcept>
+#include <unordered_set>
 #include <utility>
 
 #include "CacheReader.h"
@@ -148,7 +149,8 @@ bool ClientApp::initialize() {
               << "  cache: " << cachePath_ << "\n"
               << "  region: " << regionId_ << " base=(" << regionBaseX_ << "," << regionBaseY_ << ")\n"
               << "  objects: " << objectCount_ << "\n"
-              << "  keys: P=play, WASD/arrows=move player, Q/E=rotate camera, +/-=zoom, 1-4=plane, G=grid, F=wireframe, mouse drag=look, Escape=start/quit\n";
+              << "  models loaded: " << models_.size() << "\n"
+              << "  keys: P=play, WASD/arrows=move player, Q/E=rotate camera, +/-=zoom, 1-4=plane, G=grid, F=wireframe, O=objects, M=models, mouse drag=look, Escape=start/quit\n";
     return true;
 }
 
@@ -193,6 +195,28 @@ bool ClientApp::loadWorld() {
 
         if (regions_.empty())
             throw std::runtime_error("No map regions could be loaded around " + std::to_string(regionId_));
+
+        std::unordered_set<int> modelIds;
+        for (const LoadedRegion& loaded : regions_) {
+            for (const MapObject& object : loaded.region.objects().getObjects()) {
+                const LocDef& loc = defs_.getLoc(object.id);
+                int modelId = selectModelId(loc, object.type);
+                if (modelId >= 0)
+                    modelIds.insert(modelId);
+            }
+        }
+
+        models_.clear();
+        for (int modelId : modelIds) {
+            try {
+                std::vector<uint8_t> modelData = reader.readGzippedFile(1, modelId);
+                if (modelData.empty())
+                    continue;
+                models_.emplace(modelId, Model::parse(modelData));
+            } catch (const std::exception& ex) {
+                std::cerr << "Skipping model " << modelId << ": " << ex.what() << "\n";
+            }
+        }
     } catch (const std::exception& ex) {
         std::cerr << "Failed to load client world: " << ex.what() << "\n";
         return false;
@@ -260,6 +284,12 @@ void ClientApp::handleEvent(const SDL_Event& event) {
             break;
         case SDL_SCANCODE_G:
             showGrid_ = !showGrid_;
+            break;
+        case SDL_SCANCODE_O:
+            showObjects_ = !showObjects_;
+            break;
+        case SDL_SCANCODE_M:
+            showModels_ = !showModels_;
             break;
         default:
             break;
@@ -405,6 +435,10 @@ void ClientApp::renderWorld() {
     applyFollowCamera();
 
     renderTerrain();
+    if (showModels_)
+        renderObjectModels();
+    if (showObjects_)
+        renderObjectMarkers();
     renderPlayerMarker();
 }
 
@@ -445,11 +479,11 @@ void ClientApp::renderRegionTerrain(const LoadedRegion& loaded) {
 
             Rgb leftColor = floorColor(left);
             glColor3ub(leftColor.r, leftColor.g, leftColor.b);
-            glVertex3f(static_cast<float>(loaded.baseX + x), terrainHeight(left), static_cast<float>(loaded.baseY + y));
+            glVertex3f(static_cast<float>(loaded.baseX + x), terrainHeight(left), cacheYToWorldZ(static_cast<float>(loaded.baseY + y)));
 
             Rgb rightColor = floorColor(right);
             glColor3ub(rightColor.r, rightColor.g, rightColor.b);
-            glVertex3f(static_cast<float>(loaded.baseX + x + 1), terrainHeight(right), static_cast<float>(loaded.baseY + y));
+            glVertex3f(static_cast<float>(loaded.baseX + x + 1), terrainHeight(right), cacheYToWorldZ(static_cast<float>(loaded.baseY + y)));
         }
         glEnd();
     }
@@ -469,8 +503,8 @@ void ClientApp::renderRegionTerrainGrid(const LoadedRegion& loaded) {
         for (int y = 0; y < 63; y++) {
             const Tile& a = loaded.region.terrain().getTile(plane_, x, y);
             const Tile& b = loaded.region.terrain().getTile(plane_, x, y + 1);
-            glVertex3f(static_cast<float>(loaded.baseX + x), terrainHeight(a) + 0.04f, static_cast<float>(loaded.baseY + y));
-            glVertex3f(static_cast<float>(loaded.baseX + x), terrainHeight(b) + 0.04f, static_cast<float>(loaded.baseY + y + 1));
+            glVertex3f(static_cast<float>(loaded.baseX + x), terrainHeight(a) + 0.04f, cacheYToWorldZ(static_cast<float>(loaded.baseY + y)));
+            glVertex3f(static_cast<float>(loaded.baseX + x), terrainHeight(b) + 0.04f, cacheYToWorldZ(static_cast<float>(loaded.baseY + y + 1)));
         }
     }
 
@@ -478,8 +512,8 @@ void ClientApp::renderRegionTerrainGrid(const LoadedRegion& loaded) {
         for (int x = 0; x < 63; x++) {
             const Tile& a = loaded.region.terrain().getTile(plane_, x, y);
             const Tile& b = loaded.region.terrain().getTile(plane_, x + 1, y);
-            glVertex3f(static_cast<float>(loaded.baseX + x), terrainHeight(a) + 0.04f, static_cast<float>(loaded.baseY + y));
-            glVertex3f(static_cast<float>(loaded.baseX + x + 1), terrainHeight(b) + 0.04f, static_cast<float>(loaded.baseY + y));
+            glVertex3f(static_cast<float>(loaded.baseX + x), terrainHeight(a) + 0.04f, cacheYToWorldZ(static_cast<float>(loaded.baseY + y)));
+            glVertex3f(static_cast<float>(loaded.baseX + x + 1), terrainHeight(b) + 0.04f, cacheYToWorldZ(static_cast<float>(loaded.baseY + y)));
         }
     }
 
@@ -536,9 +570,237 @@ void ClientApp::renderPlayerMarker() {
     glEnd();
 }
 
+void ClientApp::renderObjectMarkers() {
+    glDisable(GL_TEXTURE_2D);
+    glLineWidth(2.0f);
+
+    for (const LoadedRegion& loaded : regions_)
+        renderRegionObjectMarkers(loaded);
+
+    glLineWidth(1.0f);
+}
+
+void ClientApp::renderObjectModels() {
+    glDisable(GL_TEXTURE_2D);
+    glLineWidth(1.0f);
+    glColor3f(0.05f, 0.05f, 0.05f);
+
+    for (const LoadedRegion& loaded : regions_)
+        renderRegionObjectModels(loaded);
+}
+
+void ClientApp::renderRegionObjectModels(const LoadedRegion& loaded) {
+    for (const MapObject& object : loaded.region.objects().getObjects()) {
+        if (object.z != plane_)
+            continue;
+        renderObjectModel(loaded, object);
+    }
+}
+
+void ClientApp::renderObjectModel(const LoadedRegion& loaded, const MapObject& object) {
+    const LocDef& loc = defs_.getLoc(object.id);
+    if (loc.modelIDs.empty())
+        return;
+
+    float x = static_cast<float>(loaded.baseX + object.x);
+    int width = std::max(1, loc.width);
+    int length = std::max(1, loc.length);
+    if ((object.rotation & 1) == 1)
+        std::swap(width, length);
+    float z = cacheYToWorldZ(static_cast<float>(loaded.baseY + object.y)) - static_cast<float>(length);
+    if (std::abs(x - playerX_) > 48.0f || std::abs(z - playerY_) > 48.0f)
+        return;
+
+    int modelId = selectModelId(loc, object.type);
+    if (modelId < 0)
+        return;
+
+    auto modelIt = models_.find(modelId);
+    if (modelIt == models_.end())
+        return;
+
+    float y = terrainHeightAt(x, z);
+
+    glPushMatrix();
+    glTranslatef(x + width * 0.5f, y, z + length * 0.5f);
+    glRotatef(static_cast<float>(cacheRotationToWorld(object.rotation) & 3) * 90.0f, 0.0f, 1.0f, 0.0f);
+    glTranslatef(
+        static_cast<float>(loc.offsetX) / 128.0f,
+        -static_cast<float>(loc.offsetY) / 128.0f,
+        static_cast<float>(loc.offsetZ) / 128.0f);
+    glScalef(
+        static_cast<float>(loc.scaleX) / (128.0f * 128.0f),
+        -static_cast<float>(loc.scaleY) / (128.0f * 128.0f),
+        static_cast<float>(loc.scaleZ) / (128.0f * 128.0f));
+    renderModelWireframe(modelIt->second);
+    glPopMatrix();
+}
+
+void ClientApp::renderModelWireframe(const Model& model) {
+    glBegin(GL_LINES);
+    for (const ModelTriangle& triangle : model.triangles()) {
+        const ModelVertex& a = model.vertices()[triangle.a];
+        const ModelVertex& b = model.vertices()[triangle.b];
+        const ModelVertex& c = model.vertices()[triangle.c];
+
+        glVertex3f(static_cast<float>(a.x), static_cast<float>(a.y), static_cast<float>(a.z));
+        glVertex3f(static_cast<float>(b.x), static_cast<float>(b.y), static_cast<float>(b.z));
+
+        glVertex3f(static_cast<float>(b.x), static_cast<float>(b.y), static_cast<float>(b.z));
+        glVertex3f(static_cast<float>(c.x), static_cast<float>(c.y), static_cast<float>(c.z));
+
+        glVertex3f(static_cast<float>(c.x), static_cast<float>(c.y), static_cast<float>(c.z));
+        glVertex3f(static_cast<float>(a.x), static_cast<float>(a.y), static_cast<float>(a.z));
+    }
+    glEnd();
+}
+
+int ClientApp::selectModelId(const LocDef& loc, int objectType) const {
+    if (loc.modelIDs.empty())
+        return -1;
+
+    if (!loc.modelTypes.empty()) {
+        for (std::size_t i = 0; i < loc.modelTypes.size() && i < loc.modelIDs.size(); i++) {
+            if (loc.modelTypes[i] == objectType)
+                return loc.modelIDs[i];
+        }
+        return -1;
+    }
+
+    return loc.modelIDs.front();
+}
+
+void ClientApp::renderRegionObjectMarkers(const LoadedRegion& loaded) {
+    for (const MapObject& object : loaded.region.objects().getObjects()) {
+        if (object.z != plane_)
+            continue;
+        renderObjectMarker(loaded, object);
+    }
+}
+
+void ClientApp::renderObjectMarker(const LoadedRegion& loaded, const MapObject& object) {
+    const LocDef& loc = defs_.getLoc(object.id);
+    float x = static_cast<float>(loaded.baseX + object.x);
+    int rotation = cacheRotationToWorld(object.rotation);
+    int width = object.type >= 10 ? std::max(1, loc.width) : 1;
+    int length = object.type >= 10 ? std::max(1, loc.length) : 1;
+    if (object.type >= 10 && (rotation & 1) == 1)
+        std::swap(width, length);
+    float z = cacheYToWorldZ(static_cast<float>(loaded.baseY + object.y)) - static_cast<float>(length);
+    float y = terrainHeightAt(x, z) + 0.08f;
+
+    if (object.type == 0) {
+        glColor3f(0.05f, 0.05f, 0.05f);
+        switch (rotation & 3) {
+            case 0:
+                drawObjectLine(x, y, z, x, y + 2.2f, z + 1.0f);
+                break;
+            case 1:
+                drawObjectLine(x, y, z + 1.0f, x + 1.0f, y + 2.2f, z + 1.0f);
+                break;
+            case 2:
+                drawObjectLine(x + 1.0f, y, z, x + 1.0f, y + 2.2f, z + 1.0f);
+                break;
+            case 3:
+                drawObjectLine(x, y, z, x + 1.0f, y + 2.2f, z);
+                break;
+        }
+        return;
+    }
+
+    if (object.type == 2) {
+        glColor3f(0.02f, 0.02f, 0.02f);
+        switch (rotation & 3) {
+            case 0:
+                drawObjectLine(x, y, z, x, y + 2.2f, z + 1.0f);
+                drawObjectLine(x, y, z + 1.0f, x + 1.0f, y + 2.2f, z + 1.0f);
+                break;
+            case 1:
+                drawObjectLine(x, y, z + 1.0f, x + 1.0f, y + 2.2f, z + 1.0f);
+                drawObjectLine(x + 1.0f, y, z, x + 1.0f, y + 2.2f, z + 1.0f);
+                break;
+            case 2:
+                drawObjectLine(x + 1.0f, y, z, x + 1.0f, y + 2.2f, z + 1.0f);
+                drawObjectLine(x, y, z, x + 1.0f, y + 2.2f, z);
+                break;
+            case 3:
+                drawObjectLine(x, y, z, x + 1.0f, y + 2.2f, z);
+                drawObjectLine(x, y, z, x, y + 2.2f, z + 1.0f);
+                break;
+        }
+        return;
+    }
+
+    if (object.type == 9) {
+        glColor3f(0.08f, 0.08f, 0.08f);
+        if ((rotation & 1) == 0)
+            drawObjectLine(x, y, z, x + 1.0f, y + 1.2f, z + 1.0f);
+        else
+            drawObjectLine(x, y, z + 1.0f, x + 1.0f, y + 1.2f, z);
+        return;
+    }
+
+    if (object.type >= 10) {
+        if (loc.name == "null")
+            glColor3f(0.18f, 0.18f, 0.18f);
+        else if (loc.blocksWalk)
+            glColor3f(0.42f, 0.20f, 0.16f);
+        else
+            glColor3f(0.75f, 0.55f, 0.16f);
+
+        drawObjectBox(x, y, z, static_cast<float>(width), static_cast<float>(length), loc.blocksWalk ? 2.4f : 1.3f);
+        return;
+    }
+
+    glColor3f(0.75f, 0.15f, 0.55f);
+    drawObjectBox(x + 0.3f, y, z + 0.3f, 0.4f, 0.4f, 1.0f);
+}
+
+void ClientApp::drawObjectBox(float x, float y, float z, float width, float length, float height) {
+    float x2 = x + width;
+    float y2 = y + height;
+    float z2 = z + length;
+
+    glBegin(GL_LINES);
+    glVertex3f(x, y, z);
+    glVertex3f(x2, y, z);
+    glVertex3f(x2, y, z);
+    glVertex3f(x2, y, z2);
+    glVertex3f(x2, y, z2);
+    glVertex3f(x, y, z2);
+    glVertex3f(x, y, z2);
+    glVertex3f(x, y, z);
+
+    glVertex3f(x, y2, z);
+    glVertex3f(x2, y2, z);
+    glVertex3f(x2, y2, z);
+    glVertex3f(x2, y2, z2);
+    glVertex3f(x2, y2, z2);
+    glVertex3f(x, y2, z2);
+    glVertex3f(x, y2, z2);
+    glVertex3f(x, y2, z);
+
+    glVertex3f(x, y, z);
+    glVertex3f(x, y2, z);
+    glVertex3f(x2, y, z);
+    glVertex3f(x2, y2, z);
+    glVertex3f(x2, y, z2);
+    glVertex3f(x2, y2, z2);
+    glVertex3f(x, y, z2);
+    glVertex3f(x, y2, z2);
+    glEnd();
+}
+
+void ClientApp::drawObjectLine(float x1, float y1, float z1, float x2, float y2, float z2) {
+    glBegin(GL_LINES);
+    glVertex3f(x1, y1, z1);
+    glVertex3f(x2, y2, z2);
+    glEnd();
+}
+
 float ClientApp::terrainHeightAt(float x, float y) const {
     int tileX = static_cast<int>(std::floor(x));
-    int tileY = static_cast<int>(std::floor(y));
+    int tileY = static_cast<int>(std::floor(worldZToCacheY(y)));
 
     for (const LoadedRegion& loaded : regions_) {
         int localX = tileX - loaded.baseX;
@@ -550,6 +812,19 @@ float ClientApp::terrainHeightAt(float x, float y) const {
     }
 
     return 0.0f;
+}
+
+float ClientApp::cacheYToWorldZ(float cacheY) const {
+    return 128.0f - cacheY;
+}
+
+float ClientApp::worldZToCacheY(float worldZ) const {
+    return 128.0f - worldZ;
+}
+
+int ClientApp::cacheRotationToWorld(int rotation) const {
+    rotation &= 3;
+    return (4 - rotation) & 3;
 }
 
 Rgb ClientApp::floorColor(const Tile& tile) const {

@@ -358,6 +358,11 @@ Current behavior:
 - The client uses an SDL3-created OpenGL context.
 - Play mode renders decoded terrain height maps as OpenGL triangle strips, colored from `flo.dat`.
 - Neighboring regions are placed by world-region offsets so the 3x3 area forms one continuous terrain surface.
+- Decoded map object placements are drawn as debug markers:
+  - wall types are drawn as line/edge markers
+  - type `10+` objects are drawn as footprint boxes using `LocDef` width/length and placement rotation
+  - smaller decoration types are drawn as small posts
+- Decoded `idx1` models are loaded for placed `LocDef.modelIDs` and can be drawn as first-pass wireframe geometry near the player marker.
 - Region id can be selected at launch with `--region <id>` or `--region=<id>`.
 - Start screen supports keyboard mode switching:
   - `P` enters play mode.
@@ -371,9 +376,40 @@ Current behavior:
   - `1` / `2` / `3` / `4` switch terrain planes.
   - `G` toggles terrain grid lines.
   - `F` toggles wireframe terrain.
+  - `O` toggles object debug markers.
+  - `M` toggles object model wireframes.
 - `--smoke-test` initializes, loads the cache preview, renders one frame, and exits for headless verification.
 
 This is intentionally still a shell. It proves the client executable, event loop, renderer, cache loading path, and first region-preview surface. The CLI `tool` remains available for detailed cache/debug inspection.
+
+### Model Decoding
+Initial `idx1` model decoding is implemented in `core/include/Model.h` + `core/src/Model.cpp`.
+
+Currently parsed:
+- vertices
+- triangle indices
+- face colors
+- optional face render types, priorities, alpha, skins
+- optional vertex skins
+- textured triangle index triples
+- model bounds
+
+The decoder handles the classic 317 model footer/offset layout and uses model-local signed smart reads for vertex and triangle deltas.
+
+The CLI can inspect one model:
+```bash
+./build/bin/tool ./cache model 1219
+```
+
+Verified examples:
+```text
+Model 1219: vertices=162 triangles=193 textured=5 bounds x=[-64,151] y=[-224,0] z=[-112,104]
+Model 5404: vertices=75 triangles=106 textured=0 bounds x=[-126,126] y=[-66,0] z=[-47,49]
+Model 1835: vertices=76 triangles=122 textured=0 bounds x=[-26,57] y=[-85,1] z=[-39,37]
+Model 2141: vertices=68 triangles=120 textured=5 bounds x=[-48,48] y=[-80,0] z=[-48,48]
+```
+
+Client play mode now connects object placements to `LocDef.modelIDs`, loads unique selected models from `idx1`, and draws nearby placements as first-pass wireframe geometry. If a loc has `modelTypes`, the placed `MapObject::type` selects the matching model id; untyped locs fall back to their first model id. The debug renderer applies placement rotation plus `LocDef` scale and offset fields. Lighting, face colors, animation, and exact origin/alignment behavior are still pending.
 
 Future client/editor split:
 ```text
@@ -460,8 +496,8 @@ The project is now moving from map/data inspection into game rendering. The SDL 
 
 Near-term game-rendering plan:
 1. Tune follow-camera/player movement until region navigation feels sane.
-2. Add object placement debug markers in 3D so decoded map objects can be verified against terrain.
-3. Decode/render models from `idx1` so objects/NPCs can become real geometry instead of markers.
+2. Improve object-marker shape/orientation checks against known in-game locations.
+3. Improve model placement fidelity: exact origin/alignment behavior, face colors, and culling.
 4. Add player/world navigation controls.
 5. Keep editor ideas in mind, but do not add Dear ImGui/editor panels until the game renderer has a useful base.
 
