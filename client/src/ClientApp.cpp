@@ -195,7 +195,7 @@ bool ClientApp::initialize() {
               << "  region: " << regionId_ << " base=(" << regionBaseX_ << "," << regionBaseY_ << ")\n"
               << "  objects: " << objectCount_ << "\n"
               << "  models loaded: " << models_.size() << "\n"
-              << "  keys: P=play, WASD/arrows=move player, Q/E=rotate camera, +/-=zoom, 1-4=plane, G=grid, F=wireframe, O=objects, M=models, mouse drag=look, Escape=start/quit\n";
+              << "  keys: P=play, WASD/arrows=move player, Q/E=rotate camera, +/-=zoom, 1-4=plane, G=grid, F=wireframe, U=objects, M=models, mouse drag=look, Escape=start/quit\n";
     return true;
 }
 
@@ -330,7 +330,7 @@ void ClientApp::handleEvent(const SDL_Event& event) {
         case SDL_SCANCODE_G:
             showGrid_ = !showGrid_;
             break;
-        case SDL_SCANCODE_O:
+        case SDL_SCANCODE_U:
             showObjects_ = !showObjects_;
             break;
         case SDL_SCANCODE_M:
