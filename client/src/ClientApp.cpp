@@ -26,10 +26,10 @@ Rgb fromRgbInt(int rgb) {
     };
 }
 
-Rgb rsHslToRgb(int hsl) {
+Rgb rsHslToRgb(int hsl, int shade = 0) {
     int hue = (hsl >> 10) & 0x3F;
     int saturation = (hsl >> 7) & 0x7;
-    int lightness = hsl & 0x7F;
+    int lightness = std::clamp((hsl & 0x7F) + shade, 0, 127);
 
     double h = hue / 64.0 + 0.0078125;
     double s = saturation / 8.0 + 0.0625;
@@ -700,14 +700,25 @@ void ClientApp::renderModelWireframe(const Model& model) {
 }
 
 void ClientApp::renderModelSolid(const Model& model) {
+    Vec3 lightDir = normalize({0.3f, -0.8f, 0.5f});
+    float ambient = 25.0f;
+    float diffuse = 70.0f;
+
     glBegin(GL_TRIANGLES);
     for (const ModelTriangle& triangle : model.triangles()) {
-        Rgb color = rsHslToRgb(triangle.color);
-        glColor3ub(color.r, color.g, color.b);
-
         const ModelVertex& a = model.vertices()[triangle.a];
         const ModelVertex& b = model.vertices()[triangle.b];
         const ModelVertex& c = model.vertices()[triangle.c];
+
+        Vec3 ab = {static_cast<float>(b.x - a.x), static_cast<float>(b.y - a.y), static_cast<float>(b.z - a.z)};
+        Vec3 ac = {static_cast<float>(c.x - a.x), static_cast<float>(c.y - a.y), static_cast<float>(c.z - a.z)};
+        Vec3 normal = normalize(cross(ab, ac));
+
+        float intensity = std::max(0.0f, normal.x * lightDir.x + normal.y * lightDir.y + normal.z * lightDir.z);
+        int shade = static_cast<int>(ambient + intensity * diffuse);
+
+        Rgb color = rsHslToRgb(triangle.color, shade);
+        glColor3ub(color.r, color.g, color.b);
 
         glVertex3f(static_cast<float>(a.x), static_cast<float>(a.y), static_cast<float>(a.z));
         glVertex3f(static_cast<float>(b.x), static_cast<float>(b.y), static_cast<float>(b.z));
