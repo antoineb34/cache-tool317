@@ -26,10 +26,10 @@ Rgb fromRgbInt(int rgb) {
     };
 }
 
-Rgb rsHslToRgb(int hsl, int shade = 0) {
+static Rgb hslToRgbRaw(int hsl) {
     int hue = (hsl >> 10) & 0x3F;
     int saturation = (hsl >> 7) & 0x7;
-    int lightness = std::clamp((hsl & 0x7F) + shade, 0, 127);
+    int lightness = hsl & 0x7F;
 
     double h = hue / 64.0 + 0.0078125;
     double s = saturation / 8.0 + 0.0625;
@@ -69,6 +69,73 @@ Rgb rsHslToRgb(int hsl, int shade = 0) {
         static_cast<uint8_t>(std::clamp(g * 256.0, 0.0, 255.0)),
         static_cast<uint8_t>(std::clamp(b * 256.0, 0.0, 255.0))
     };
+}
+
+static int adjustBrightness(int rgb, double brightness) {
+    double r = ((rgb >> 16) & 0xFF) / 256.0;
+    double g = ((rgb >> 8) & 0xFF) / 256.0;
+    double b = (rgb & 0xFF) / 256.0;
+    r = std::pow(r, brightness);
+    g = std::pow(g, brightness);
+    b = std::pow(b, brightness);
+    return ((int)(r * 256.0) << 16) | ((int)(g * 256.0) << 8) | (int)(b * 256.0);
+}
+
+static std::vector<uint32_t> generateModelPalette(double brightness) {
+    std::vector<uint32_t> palette(65536);
+    int index = 0;
+    for (int k = 0; k < 512; k++) {
+        double hue = (k / 8) / 64.0 + 0.0078125;
+        double saturation = (k & 7) / 8.0 + 0.0625;
+        for (int k1 = 0; k1 < 128; k1++) {
+            double intensity = k1 / 128.0;
+            double r = intensity;
+            double g = intensity;
+            double b = intensity;
+            if (saturation != 0.0) {
+                double a;
+                if (intensity < 0.5) {
+                    a = intensity * (1.0 + saturation);
+                } else {
+                    a = (intensity + saturation) - (intensity * saturation);
+                }
+                double b2 = 2.0 * intensity - a;
+                double fRed = hue + (1.0 / 3.0);
+                double fBlue = hue - (1.0 / 3.0);
+                if (fRed > 1.0) fRed -= 1.0;
+                if (fBlue < 0.0) fBlue += 1.0;
+
+                auto getValue = [](double hue, double a, double b) -> double {
+                    if (6.0 * hue < 1.0) return b + (a - b) * 6.0 * hue;
+                    if (2.0 * hue < 1.0) return a;
+                    if (3.0 * hue < 2.0) return b + (a - b) * ((2.0 / 3.0) - hue) * 6.0;
+                    return b;
+                };
+
+                r = getValue(fRed, a, b2);
+                g = getValue(hue, a, b2);
+                b = getValue(fBlue, a, b2);
+            }
+            int rgb = ((int)(r * 256.0) << 16) | ((int)(g * 256.0) << 8) | (int)(b * 256.0);
+            rgb = adjustBrightness(rgb, brightness);
+            if (rgb == 0) rgb = 1;
+            palette[index++] = rgb;
+        }
+    }
+    return palette;
+}
+
+static int mixLightness(int colour, int lightness, int drawType) {
+    if ((drawType & 2) == 2) {
+        if (lightness < 0) lightness = 0;
+        else if (lightness > 127) lightness = 127;
+        lightness = 127 - lightness;
+        return lightness;
+    }
+    lightness = (lightness * (colour & 0x7F)) >> 7;
+    if (lightness < 2) lightness = 2;
+    else if (lightness > 126) lightness = 126;
+    return (colour & 0xFF80) + lightness;
 }
 
 float terrainHeight(const Tile& tile) {
@@ -186,6 +253,7 @@ bool ClientApp::initialize() {
 
     SDL_GL_SetSwapInterval(1);
     glClearColor(0.07f, 0.08f, 0.09f, 1.0f);
+    modelPalette_ = generateModelPalette(0.9);
 
     if (!loadWorld())
         return false;
@@ -699,13 +767,41 @@ void ClientApp::renderModelWireframe(const Model& model) {
     glEnd();
 }
 
-void ClientApp::renderModelSolid(const Model& model) {
-    Vec3 lightDir = normalize({0.3f, -0.8f, 0.5f});
-    float ambient = 15.0f;
-    float diffuse = 55.0f;
+Rgb ClientApp::modelFaceColor(int baseHsl, int renderType, float nx, float ny, float nz) const {
+    Vec3 light = {-50.0f, -10.0f, -50.0f};
+    int lightMod = 64;
+    int magnitudeMultiplier = 768;
 
+    float lightMagnitude = std::sqrt(light.x * light.x + light.y * light.y + light.z * light.z);
+    int magnitude = static_cast<int>(magnitudeMultiplier * lightMagnitude) >> 8;
+    int denom = magnitude + magnitude / 2;
+
+    float normalLength = std::sqrt(nx * nx + ny * ny + nz * nz);
+    if (normalLength > 0.001f) {
+        nx = (nx / normalLength) * 256.0f;
+        ny = (ny / normalLength) * 256.0f;
+        nz = (nz / normalLength) * 256.0f;
+    }
+
+    int dot = static_cast<int>(light.x * nx + light.y * ny + light.z * nz);
+    int lightness = lightMod + dot / denom;
+
+    int finalHsl = mixLightness(baseHsl, lightness, renderType);
+    int rgb = modelPalette_[finalHsl & 0xFFFF];
+
+    return {
+        static_cast<uint8_t>((rgb >> 16) & 0xFF),
+        static_cast<uint8_t>((rgb >> 8) & 0xFF),
+        static_cast<uint8_t>(rgb & 0xFF)
+    };
+}
+
+void ClientApp::renderModelSolid(const Model& model) {
     glBegin(GL_TRIANGLES);
     for (const ModelTriangle& triangle : model.triangles()) {
+        if ((triangle.renderType & 3) >= 2)
+            continue;
+
         const ModelVertex& a = model.vertices()[triangle.a];
         const ModelVertex& b = model.vertices()[triangle.b];
         const ModelVertex& c = model.vertices()[triangle.c];
@@ -714,10 +810,7 @@ void ClientApp::renderModelSolid(const Model& model) {
         Vec3 ac = {static_cast<float>(c.x - a.x), static_cast<float>(c.y - a.y), static_cast<float>(c.z - a.z)};
         Vec3 normal = normalize(cross(ab, ac));
 
-        float intensity = normal.x * lightDir.x + normal.y * lightDir.y + normal.z * lightDir.z;
-        int shade = static_cast<int>(ambient + intensity * diffuse);
-
-        Rgb color = rsHslToRgb(triangle.color, shade);
+        Rgb color = modelFaceColor(triangle.color, triangle.renderType, normal.x, normal.y, normal.z);
         glColor3ub(color.r, color.g, color.b);
 
         glVertex3f(static_cast<float>(a.x), static_cast<float>(a.y), static_cast<float>(a.z));

@@ -59,6 +59,7 @@ private:
     void renderObjectModel(const LoadedRegion& loaded, const MapObject& object);
     void renderModelWireframe(const Model& model);
     void renderModelSolid(const Model& model);
+    Rgb modelFaceColor(int baseHsl, int renderType, float nx, float ny, float nz) const;
     int selectModelId(const LocDef& loc, int objectType) const;
     void drawObjectBox(float x, float y, float z, float width, float length, float height);
     void drawObjectLine(float x1, float y1, float z1, float x2, float y2, float z2);
@@ -84,6 +85,7 @@ private:
     DefinitionsLoader defs_;
     std::vector<LoadedRegion> regions_;
     std::unordered_map<int, Model> models_;
+    std::vector<uint32_t> modelPalette_;
     int regionId_ = 12850;
     int regionBaseX_ = 0;
     int regionBaseY_ = 0;

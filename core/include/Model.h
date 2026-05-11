@@ -14,7 +14,7 @@ struct ModelTriangle {
     int b = 0;
     int c = 0;
     int color = 0;
-    int renderType = -1;
+    int renderType = 0;
     int priority = -1;
     int alpha = -1;
     int skin = -1;
