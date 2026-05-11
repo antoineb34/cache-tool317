@@ -701,8 +701,8 @@ void ClientApp::renderModelWireframe(const Model& model) {
 
 void ClientApp::renderModelSolid(const Model& model) {
     Vec3 lightDir = normalize({0.3f, -0.8f, 0.5f});
-    float ambient = 25.0f;
-    float diffuse = 70.0f;
+    float ambient = 15.0f;
+    float diffuse = 55.0f;
 
     glBegin(GL_TRIANGLES);
     for (const ModelTriangle& triangle : model.triangles()) {
@@ -714,7 +714,7 @@ void ClientApp::renderModelSolid(const Model& model) {
         Vec3 ac = {static_cast<float>(c.x - a.x), static_cast<float>(c.y - a.y), static_cast<float>(c.z - a.z)};
         Vec3 normal = normalize(cross(ab, ac));
 
-        float intensity = std::max(0.0f, normal.x * lightDir.x + normal.y * lightDir.y + normal.z * lightDir.z);
+        float intensity = normal.x * lightDir.x + normal.y * lightDir.y + normal.z * lightDir.z;
         int shade = static_cast<int>(ambient + intensity * diffuse);
 
         Rgb color = rsHslToRgb(triangle.color, shade);
