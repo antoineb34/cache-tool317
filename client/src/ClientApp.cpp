@@ -768,12 +768,12 @@ void ClientApp::renderModelWireframe(const Model& model) {
 }
 
 Rgb ClientApp::modelFaceColor(int baseHsl, int renderType, float nx, float ny, float nz) const {
-    Vec3 light = {-50.0f, -10.0f, -50.0f};
+    Vec3 light = {-30.0f, -50.0f, -30.0f};
     int lightMod = 64;
-    int magnitudeMultiplier = 768;
+    int magnitudeMultiplier = 850;
 
-    float lightMagnitude = std::sqrt(light.x * light.x + light.y * light.y + light.z * light.z);
-    int magnitude = static_cast<int>(magnitudeMultiplier * lightMagnitude) >> 8;
+    int lightMagnitude = static_cast<int>(std::sqrt(light.x * light.x + light.y * light.y + light.z * light.z));
+    int magnitude = (magnitudeMultiplier * lightMagnitude) >> 8;
     int denom = magnitude + magnitude / 2;
 
     float normalLength = std::sqrt(nx * nx + ny * ny + nz * nz);
