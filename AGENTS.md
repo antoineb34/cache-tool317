@@ -9,10 +9,11 @@
 - 2D map renderer: `RegionRenderer2D`
 
 **In progress:**
-- OpenGL model renderer — `ModelDef` parser is complete and verified; next step is rendering
+- Model renderer is working: solid colored spinning model with HSL face colors, depth test, backface culling
+- Next: orbit camera (mouse rotate/zoom) then map renderer
 
 **Up next:**
-1. OpenGL model renderer (user is a beginner with OpenGL — step by step, start simple)
+1. Orbit camera — mouse controls to rotate/zoom instead of auto-spin
 2. 3D map renderer (objects placed on terrain)
 
 **End goal:**
