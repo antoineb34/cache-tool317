@@ -9,12 +9,14 @@
 - 2D map renderer: `RegionRenderer2D`
 
 **In progress:**
-- Model renderer is working: solid colored spinning model with HSL face colors, depth test, backface culling
-- Next: orbit camera (mouse rotate/zoom) then map renderer
+- Model renderer working: HSL face colors, depth test, backface culling, textured-face detection
+- Unused ModelDef fields (triAlpha, triPriority, triSkin, vertexSkin, texP/Q/R) are parsed and ready — intentionally deferred until textures/animations are tackled
+- Next: orbit camera then map renderer
 
 **Up next:**
 1. Orbit camera — mouse controls to rotate/zoom instead of auto-spin
 2. 3D map renderer (objects placed on terrain)
+3. Textures (archive 6) — needed to fix textured faces currently shown as grey
 
 **End goal:**
 Full RS317 client + integrated cache editor — modify any game file (items, map, models, etc.) and write it back to the cache.

@@ -28,5 +28,11 @@ struct ModelDef {
     std::vector<uint16_t> texQ;
     std::vector<uint16_t> texR;
 
+    // helpers for decoding the packed faceRenderType byte:
+    //   bit 0 = semi-transparent, bit 1 = textured, bits 7-2 = texture triangle index
+    bool isFaceTextured(int i)     const { return !triRenderType.empty() && (triRenderType[i] & 2); }
+    bool isFaceTransparent(int i)  const { return !triRenderType.empty() && (triRenderType[i] & 1); }
+    int  faceTexTriIndex(int i)    const { return !triRenderType.empty() ? (triRenderType[i] >> 2) : 0; }
+
     static ModelDef parse(int id, const std::vector<uint8_t>& data);
 };

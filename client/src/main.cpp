@@ -140,7 +140,13 @@ int main(int argc, char* argv[]) {
 
     for (int i = 0; i < (int)model.triA.size(); i++) {
         float r, g, b;
-        hslToRgb(model.triColor[i], r, g, b);
+        if (model.isFaceTextured(i)) {
+            // textured face: triColor is a dark tint meant to modulate a texture,
+            // not a flat color. Use mid-grey placeholder until textures are implemented.
+            r = g = b = 0.5f;
+        } else {
+            hslToRgb(model.triColor[i], r, g, b);
+        }
 
         uint16_t corners[3] = { model.triA[i], model.triB[i], model.triC[i] };
         for (uint16_t vi : corners) {

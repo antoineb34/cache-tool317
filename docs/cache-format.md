@@ -189,6 +189,11 @@ facePriority:      triangleCount bytes (if priorityFlag == 255)
 faceSkin:          triangleCount bytes (if hasFaceSkins == 1)
 
 faceRenderType:    triangleCount bytes (if hasFaceRenderTypes == 1)
+                   bit 0: transparency flag (1 = semi-transparent face)
+                   bit 1: texture flag      (1 = textured face, uses a texture triangle)
+                   bits 7-2: texture triangle index (renderType >> 2), only valid if bit 1 set
+                   examples: 0=flat opaque, 1=flat transparent,
+                             2=textured opaque (texIdx=0), 6=textured opaque (texIdx=1)
 
 vertexSkin:        vertexCount bytes (if hasVertexSkins == 1)
 

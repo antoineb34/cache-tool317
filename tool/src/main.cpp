@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
+#include <map>
 #include <string>
 
 #include "CacheReader.h"
@@ -127,6 +128,22 @@ int main(int argc, char* argv[]) {
                     << def.triB[0] << ", "
                     << def.triC[0] << ")  color=0x"
                     << std::hex << def.triColor[0] << std::dec << "\n";
+            }
+
+            // render type breakdown
+            if (!def.triRenderType.empty()) {
+                std::map<int,int> typeCounts;
+                for (uint8_t t : def.triRenderType) typeCounts[t]++;
+                std::cout << "\n  Render type distribution:\n";
+                for (auto& [type, count] : typeCounts)
+                    std::cout << "    type " << type << ": " << count << " faces\n";
+
+                std::cout << "\n  First 10 triangles (type | color | indices):\n";
+                for (int i = 0; i < std::min(10,(int)def.triA.size()); i++) {
+                    std::cout << "    [" << i << "] type=" << (int)def.triRenderType[i]
+                              << "  color=0x" << std::hex << def.triColor[i] << std::dec
+                              << "  (" << def.triA[i] << "," << def.triB[i] << "," << def.triC[i] << ")\n";
+                }
             }
             return 0;
         }
