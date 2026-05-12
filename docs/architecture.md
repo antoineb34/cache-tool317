@@ -3,22 +3,22 @@
 ## Module Overview
 
 ```
-┌─────────────────────────────────────────┐
-│              client.exe                  │
-│  (SDL3 window + OpenGL renderer)         │
-└─────────────────┬───────────────────────┘
-                  │ links against
-┌─────────────────▼───────────────────────┐
-│              tool.exe                    │
-│  (CLI cache inspection)                  │
-└─────────────────┬───────────────────────┘
-                  │ links against
-┌─────────────────▼───────────────────────┐
-│              libcore.a                   │
-│  (cache reading, parsing, definitions)   │
-└─────────────────────────────────────────┘
-                  │ links against
-    BZip2, ZLIB, SDL3, OpenGL
+┌──────────────────────┐   ┌──────────────────────────────┐
+│      tool.exe        │   │         client.exe            │
+│  (CLI cache tool)    │   │  (SDL3 window + OpenGL)       │
+└──────────┬───────────┘   └──────────────┬───────────────┘
+           │                              │
+           │       links against          │ links against
+           └──────────────┬───────────────┘
+              ┌───────────▼───────────────┐
+              │        libcore.a          │
+              │  (cache reading,          │
+              │   parsing, definitions)   │
+              └───────────┬───────────────┘
+                          │ links against
+                     BZip2, ZLIB
+
+client.exe also links: SDL3, OpenGL
 ```
 
 ## core/ — Shared Library

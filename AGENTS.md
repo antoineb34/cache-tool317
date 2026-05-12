@@ -1,5 +1,26 @@
 # cache-tool317 — Agent Instructions
 
+## Current Work
+
+**Done:**
+- All cache I/O: `Buffer`, `CacheReader`, `Archive`
+- All definition parsers: `ItemDef`, `NpcDef`, `LocDef`, `FloDef`, `SeqDef`, `SpotAnimDef`, `VarbitDef`, `VarpDef`, `MesAnimDef`, `MesDef`, `ParamDef`, `IdkDef`
+- Map parsing: `MapRegion`, `MapTerrain`, `MapObjects`
+- 2D map renderer: `RegionRenderer2D`
+
+**In progress:**
+- `ModelDef` parser — reading raw vertex/triangle bytes from cache from scratch
+- Going slow: understand the raw byte format fully before attempting rendering
+
+**Up next:**
+1. OpenGL model renderer (user is a beginner with OpenGL — step by step)
+2. 3D map renderer (objects placed on terrain)
+
+**End goal:**
+Full RS317 client + integrated cache editor — modify any game file (items, map, models, etc.) and write it back to the cache.
+
+---
+
 ## What This Is
 
 A **RuneScape 317 cache tool** written in **C++20** with **CMake**.
@@ -17,7 +38,7 @@ cmake --build build
 
 Binaries:
 - `build/bin/tool` — CLI cache inspection tool
-- `build/bin/client` — windowed game client (currently a stub)
+- `build/bin/client` — windowed game client (currently empty — model renderer being built)
 
 ## Directory Map
 
@@ -43,6 +64,8 @@ cache-tool/
 - **Think together before writing.** Present a plan, let the user confirm or redirect, then write.
 - **Do one thing at a time.** Don't write multiple systems at once.
 - **Always build and verify after every change.**
+- **Keep docs in sync automatically.** Whenever the project direction, current work, or agent behavior rules change, update `Current Work` in this file and any relevant `docs/` files. The user should never have to update docs manually.
+- **Use feature branches.** Never push significant changes directly to `main`. Create a branch (`feature/`, `fix/`, `refactor/` prefix), work on it, then merge when done. `main` stays stable.
 
 ## Coding Conventions
 
@@ -76,5 +99,4 @@ cache-tool/
 | Build / architecture | `docs/architecture.md` |
 | Coding conventions (detailed) | `docs/conventions.md` |
 | Algorithm reference (graphics, lighting, palette) | `docs/algorithms.md` |
-| Project history / learning journal | `docs/history.md` |
 | How to add a definition parser | `docs/adding-parsers.md` |
