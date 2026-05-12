@@ -18,6 +18,7 @@ target_sources(core PRIVATE
     src/SpotAnimDef.cpp
     src/VarbitDef.cpp
     src/VarpDef.cpp
+    src/ModelDef.cpp
     src/VersionList.cpp
     src/MapTerrain.cpp
     src/MapObjects.cpp

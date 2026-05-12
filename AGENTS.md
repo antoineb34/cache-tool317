@@ -9,11 +9,10 @@
 - 2D map renderer: `RegionRenderer2D`
 
 **In progress:**
-- `ModelDef` parser — reading raw vertex/triangle bytes from cache from scratch
-- Going slow: understand the raw byte format fully before attempting rendering
+- OpenGL model renderer — `ModelDef` parser is complete and verified; next step is rendering
 
 **Up next:**
-1. OpenGL model renderer (user is a beginner with OpenGL — step by step)
+1. OpenGL model renderer (user is a beginner with OpenGL — step by step, start simple)
 2. 3D map renderer (objects placed on terrain)
 
 **End goal:**
