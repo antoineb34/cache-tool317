@@ -349,38 +349,35 @@ Useful transform relationship:
 - Example from the bundled cache: loc `2452` (`airtemple_ruined`) uses `varbitID=607` with overrides `[7103, 7104]`; varbit `607` reads bit `0` from varp `491`.
 
 ### Client Shell
-Initial windowed client shell is implemented in `client/` using SDL3.
+The client has been **completely rewritten from scratch** to be a minimal, educational renderer. The previous complex client was deleted. The goal is step-by-step learning of the graphics pipeline.
 
-Current behavior:
-- `build/bin/client [cache path]` opens a window.
-- Default cache path is `./cache`.
-- Startup loads the definitions archive pieces needed by the renderer (`loc` + `flo`), loads versionlist, and loads a 3x3 region area centered on region `12850` by default.
-- The client uses an SDL3-created OpenGL context.
-- Play mode renders decoded terrain height maps as OpenGL triangle strips, colored from `flo.dat`.
-- Neighboring regions are placed by world-region offsets so the 3x3 area forms one continuous terrain surface.
-- Decoded map object placements are drawn as debug markers:
-  - wall types are drawn as line/edge markers
-  - type `10+` objects are drawn as footprint boxes using `LocDef` width/length and placement rotation
-  - smaller decoration types are drawn as small posts
-- Decoded `idx1` models are loaded for placed `LocDef.modelIDs` and drawn as flat-shaded colored geometry near the player marker.
-- Region id can be selected at launch with `--region <id>` or `--region=<id>`.
-- Start screen supports keyboard mode switching:
-  - `P` enters play mode.
-  - `Escape` returns to start, or quits from start.
-- Play-mode camera controls:
-  - `WASD` / arrow keys move a temporary player marker relative to the camera direction.
-  - Camera follows behind/above the marker and tracks the terrain height under it.
-  - `Q` / `E` rotate the follow camera around the marker.
-  - `+` / `-` zoom the camera.
-  - Left mouse drag rotates/pitches the camera.
-  - `1` / `2` / `3` / `4` switch terrain planes.
-  - `G` toggles terrain grid lines.
-  - `F` toggles wireframe terrain.
-  - `O` toggles object debug markers.
-  - `M` toggles object model rendering.
-- `--smoke-test` initializes, loads the cache preview, renders one frame, and exits for headless verification.
+Current client (`client/src/main.cpp`):
+- **SDL3** window + **OpenGL 2.1 immediate mode** context
+- Single-file implementation (no `ClientApp` class, no headers)
+- Loads **one model** from the cache (model 1219 from idx1) and renders it as a **wireframe**
+- Uses **perspective projection** (custom `perspective()` matrix, not `gluPerspective`)
+- Frame-rate independent camera controls
 
-This is intentionally still a shell. It proves the client executable, event loop, renderer, cache loading path, and first region-preview surface. The CLI `tool` remains available for detailed cache/debug inspection.
+Current controls:
+- **Mouse drag (left button)** = rotate the view (orbit)
+- **Mouse wheel** = zoom in / out
+- **Arrow keys** = pan / move around the scene
+
+Graphics concepts learned so far:
+1. Opening an SDL window and clearing the screen
+2. `glBegin(GL_QUADS)` / `glEnd()` immediate mode
+3. Normalized Device Coordinates (`-1` to `+1`) vs custom world coordinates
+4. `glOrtho` for 2D projections (used for terrain earlier, currently not active)
+5. Aspect ratio correction (`width/height`)
+6. Perspective projection matrices (`glFrustum`-style manual matrix)
+7. `glTranslatef` / `glRotatef` for camera positioning
+8. `GL_LINES` for wireframe rendering
+9. Double buffering (`SDL_GL_SwapWindow`)
+10. Frame-rate independent movement (`deltaTime` from `SDL_GetTicks`)
+
+The user understands `core/` (cache reading, definitions, map decode) but is learning graphics from zero. The agent must teach OpenGL concepts step-by-step before writing code.
+
+The CLI `tool` remains available for detailed cache/debug inspection.
 
 ### Model Decoding
 Initial `idx1` model decoding is implemented in `core/include/Model.h` + `core/src/Model.cpp`.
@@ -492,14 +489,39 @@ for (char c : name)
 ---
 
 ## What's Next
-The project is now moving from map/data inspection into game rendering. The SDL 2D renderer placeholder has been replaced with an SDL3-created OpenGL context, and play mode now renders a 3x3 decoded terrain area. The immediate next step is improving that world render path into something closer to a playable scene.
+The project is in a **graphics education phase**. The user is learning OpenGL from scratch by building the client renderer step-by-step. `core/` (cache reading, definitions, map decode, model decode) is complete and well-understood.
 
-Near-term game-rendering plan:
-1. Tune follow-camera/player movement until region navigation feels sane.
-2. Improve object-marker shape/orientation checks against known in-game locations.
-3. Improve model placement fidelity: exact origin/alignment behavior and culling.
-4. Add player/world navigation controls.
-5. Keep editor ideas in mind, but do not add Dear ImGui/editor panels until the game renderer has a useful base.
+Current learning path (graphics):
+1. ✅ Open window + clear screen
+2. ✅ Draw a single square in 2D
+3. ✅ Set up `glOrtho` for tile coordinates
+4. ✅ Aspect ratio correction
+5. ✅ Draw a grid of squares (64×64)
+6. ✅ Load real terrain colors from `FloDef` and draw them
+7. ✅ Switch to 3D: perspective projection matrix
+8. ✅ Load and render a single model wireframe
+9. ✅ Camera controls: rotate (mouse drag), zoom (wheel), pan (arrows)
+10. ⏳ Frame-rate independent timing
+
+Immediate next topics (user decides order):
+- Fill triangles with solid colors (wireframe → filled faces)
+- Use real face colors from the model (HSL → RGB palette lookup)
+- Render the model at actual world positions on the map terrain
+- Add more models / object placements
+- Textures (after solid-color rendering is solid)
+
+The user decides direction. The agent explains concepts, then writes minimal code, then builds and verifies. No dumping entire files.
+
+## Agent Collaboration Notes
+The user is the main brain. The agent executes. **Critical rules for future agents:**
+
+1. **Explain before writing.** The user wants to understand the graphics pipeline and OpenGL concepts. Do not write code the user doesn't understand.
+2. **One step at a time.** Each step should add one concept and ~10-20 lines of code maximum.
+3. **Build and verify after every change.** The user must see it working before moving on.
+4. **Do not dump entire files.** Make small surgical edits. The user cannot follow massive code dumps.
+5. **The user knows C++.** Do not explain basic programming. Explain graphics concepts: projection matrices, coordinate systems, rasterization, the GPU pipeline, etc.
+6. **Ask before refactoring.** If the code is working, ask if the user wants to clean it up or add the next feature.
+7. **The `core/` library is sacred.** The user fully understands it. Do not modify `core/` without explicit permission.
 
 To get the parsed definitions archive:
 ```cpp
@@ -532,8 +554,9 @@ const MapIndexEntry* entry = versionList.findMapRegion(regionId);
 ---
 
 ## Planned but Not Started
-- Model viewer (renders idx1 model files)
-- Real map/game viewer controls beyond the first terrain camera
+- Model viewer with solid colors and real face colors
+- Model placement on map terrain at correct world positions
+- Textured triangle rendering
 - Playable game-client runtime
 - Dear ImGui editor panels
 - Writing/modifying cache files
