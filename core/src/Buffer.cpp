@@ -67,3 +67,9 @@ uint32_t Buffer::readSmart() {
     if (value < 128) return readByte();
     return readUShort() - 32768;
 }
+
+int Buffer::readSignedSmart() {
+    uint8_t value = data[pos];
+    if (value < 128) return static_cast<int>(readByte()) - 64;
+    return static_cast<int>(readUShort()) - 49152;
+}

@@ -19,6 +19,7 @@ public:
     int32_t     readInt();        // 4 bytes signed
     std::string readString();     // null-terminated string
     uint32_t    readSmart();
+    int         readSignedSmart();  // model format variant: signed, offset by 64/49152
 
     void skip(int n);                                           // advance position by n bytes
     std::vector<uint8_t> slice(int start, int end) const;       // copy bytes from [start, end)

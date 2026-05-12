@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "Buffer.h"
+
 struct ModelVertex {
     int x = 0;
     int y = 0;
@@ -35,19 +37,17 @@ struct ModelBounds {
     int maxZ = 0;
 };
 
-class Model {
-public:
-    static Model parse(const std::vector<uint8_t>& data);
+// 317 model geometry decoded from a raw idx1 file.
+// Parsed using Buffer, matching the convention of other cache parsers.
+struct Model {
+    std::vector<ModelVertex> vertices;
+    std::vector<ModelTriangle> triangles;
+    std::vector<ModelTextureTriangle> textureTriangles;
+    std::vector<int> vertexSkins;
 
-    const std::vector<ModelVertex>& vertices() const;
-    const std::vector<ModelTriangle>& triangles() const;
-    const std::vector<ModelTextureTriangle>& textureTriangles() const;
-    const std::vector<int>& vertexSkins() const;
     ModelBounds bounds() const;
 
-private:
-    std::vector<ModelVertex> vertices_;
-    std::vector<ModelTriangle> triangles_;
-    std::vector<ModelTextureTriangle> textureTriangles_;
-    std::vector<int> vertexSkins_;
+    // Parse one model from decompressed idx1 bytes.
+    // Throws std::runtime_error on malformed data.
+    static Model parse(Buffer& buf);
 };

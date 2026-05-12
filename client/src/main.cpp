@@ -8,6 +8,64 @@
 #include "CacheReader.h"
 #include "Model.h"
 
+// RS 317 palette helpers -------------------------------------------------
+
+static int adjustBrightness(int rgb, double brightness) {
+    double r = ((rgb >> 16) & 0xFF) / 256.0;
+    double g = ((rgb >> 8)  & 0xFF) / 256.0;
+    double b = ( rgb        & 0xFF) / 256.0;
+    r = std::pow(r, brightness);
+    g = std::pow(g, brightness);
+    b = std::pow(b, brightness);
+    return ((int)(r * 256.0) << 16) | ((int)(g * 256.0) << 8) | (int)(b * 256.0);
+}
+
+static double getPaletteValue(double hue, double a, double b) {
+    if (6.0 * hue < 1.0) return b + (a - b) * 6.0 * hue;
+    if (2.0 * hue < 1.0) return a;
+    if (3.0 * hue < 2.0) return b + (a - b) * ((2.0 / 3.0) - hue) * 6.0;
+    return b;
+}
+
+static std::vector<uint32_t> generateModelPalette(double brightness) {
+    std::vector<uint32_t> palette(65536);
+    int index = 0;
+    for (int y = 0; y < 512; y++) {
+        double hue = (y / 8) / 64.0 + 0.0078125;
+        double saturation = (y & 7) / 8.0 + 0.0625;
+        for (int x = 0; x < 128; x++) {
+            double intensity = x / 128.0;
+            double r = intensity;
+            double g = intensity;
+            double b = intensity;
+
+            if (saturation != 0.0) {
+                double a;
+                if (intensity < 0.5) {
+                    a = intensity * (1.0 + saturation);
+                } else {
+                    a = (intensity + saturation) - (intensity * saturation);
+                }
+                double b2 = 2.0 * intensity - a;
+                double fRed = hue + (1.0 / 3.0);
+                double fBlue = hue - (1.0 / 3.0);
+                if (fRed > 1.0) fRed -= 1.0;
+                if (fBlue < 0.0) fBlue += 1.0;
+
+                r = getPaletteValue(fRed, a, b2);
+                g = getPaletteValue(hue, a, b2);
+                b = getPaletteValue(fBlue, a, b2);
+            }
+
+            int rgb = ((int)(r * 256.0) << 16) | ((int)(g * 256.0) << 8) | (int)(b * 256.0);
+            rgb = adjustBrightness(rgb, brightness);
+            if (rgb == 0) rgb = 1;
+            palette[index++] = rgb;
+        }
+    }
+    return palette;
+}
+
 // Helper: set up a perspective projection matrix.
 // 'fov' is field of view in degrees, 'aspect' is width/height.
 static void perspective(float fov, float aspect, float nearPlane, float farPlane) {
@@ -67,9 +125,13 @@ int main() {
         std::cerr << "Model 1219 not found\n";
         return 1;
     }
-    Model model = Model::parse(modelData);
-    std::cout << "Loaded model 1219: " << model.vertices().size() << " vertices, "
-              << model.triangles().size() << " triangles\n";
+    Buffer modelBuf(modelData);
+    Model model = Model::parse(modelBuf);
+    std::cout << "Loaded model 1219: " << model.vertices.size() << " vertices, "
+              << model.triangles.size() << " triangles\n";
+
+    // Build the RS 317 color palette (65,536 entries).
+    std::vector<uint32_t> palette = generateModelPalette(0.9);
 
     // 5. Main loop
     bool running = true;
@@ -152,26 +214,54 @@ int main() {
         glRotatef(rotX, 1.0f, 0.0f, 0.0f);   // tilt up/down
         glRotatef(rotY, 0.0f, 1.0f, 0.0f);   // spin left/right
 
-        // Draw the model as a wireframe — just the edges of every triangle.
-        // No lighting, no colors, no filling. Just white lines showing the shape.
+        // Draw the model as filled triangles with real RS palette colors.
+        // The RS client uses a software rasterizer with no GPU face culling.
+        // Explicitly disable culling so every triangle draws regardless of winding.
+        glDisable(GL_CULL_FACE);
+
+        // RS models often face +Z by convention, but our camera looks from +Z toward
+        // the origin (down -Z). Spin the model 180° so its front faces the camera.
+        glRotatef(180.0f, 0.0f, 1.0f, 0.0f);
+
+        glBegin(GL_TRIANGLES);
+        for (const ModelTriangle& tri : model.triangles) {
+            if ((tri.renderType & 3) == 2)
+                continue;
+
+            uint32_t rgb = palette[tri.color & 0xFFFF];
+            glColor3ub(
+                static_cast<uint8_t>((rgb >> 16) & 0xFF),
+                static_cast<uint8_t>((rgb >> 8)  & 0xFF),
+                static_cast<uint8_t>( rgb        & 0xFF)
+            );
+
+            const ModelVertex& a = model.vertices[tri.a];
+            const ModelVertex& b = model.vertices[tri.b];
+            const ModelVertex& c = model.vertices[tri.c];
+
+            // Negate Y to flip RS down-Y to OpenGL up-Y.
+            glVertex3f(static_cast<float>(a.x), -static_cast<float>(a.y), static_cast<float>(a.z));
+            glVertex3f(static_cast<float>(b.x), -static_cast<float>(b.y), static_cast<float>(b.z));
+            glVertex3f(static_cast<float>(c.x), -static_cast<float>(c.y), static_cast<float>(c.z));
+        }
+        glEnd();
+
+        // Optional: draw wireframe edges on top so we can still see the triangle structure.
         glBegin(GL_LINES);
-        glColor3f(1.0f, 1.0f, 1.0f);  // white
-        for (const ModelTriangle& tri : model.triangles()) {
-            const ModelVertex& a = model.vertices()[tri.a];
-            const ModelVertex& b = model.vertices()[tri.b];
-            const ModelVertex& c = model.vertices()[tri.c];
+        glColor3f(0.2f, 0.2f, 0.2f);  // dark gray edges
+        for (const ModelTriangle& tri : model.triangles) {
+            const ModelVertex& a = model.vertices[tri.a];
+            const ModelVertex& b = model.vertices[tri.b];
+            const ModelVertex& c = model.vertices[tri.c];
 
-            // Edge a -> b
-            glVertex3f(static_cast<float>(a.x), static_cast<float>(a.y), static_cast<float>(a.z));
-            glVertex3f(static_cast<float>(b.x), static_cast<float>(b.y), static_cast<float>(b.z));
+            glVertex3f(static_cast<float>(a.x), -static_cast<float>(a.y), static_cast<float>(a.z));
+            glVertex3f(static_cast<float>(b.x), -static_cast<float>(b.y), static_cast<float>(b.z));
 
-            // Edge b -> c
-            glVertex3f(static_cast<float>(b.x), static_cast<float>(b.y), static_cast<float>(b.z));
-            glVertex3f(static_cast<float>(c.x), static_cast<float>(c.y), static_cast<float>(c.z));
+            glVertex3f(static_cast<float>(b.x), -static_cast<float>(b.y), static_cast<float>(b.z));
+            glVertex3f(static_cast<float>(c.x), -static_cast<float>(c.y), static_cast<float>(c.z));
 
-            // Edge c -> a
-            glVertex3f(static_cast<float>(c.x), static_cast<float>(c.y), static_cast<float>(c.z));
-            glVertex3f(static_cast<float>(a.x), static_cast<float>(a.y), static_cast<float>(a.z));
+            glVertex3f(static_cast<float>(c.x), -static_cast<float>(c.y), static_cast<float>(c.z));
+            glVertex3f(static_cast<float>(a.x), -static_cast<float>(a.y), static_cast<float>(a.z));
         }
         glEnd();
 

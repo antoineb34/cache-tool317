@@ -216,35 +216,54 @@ static int inspectModel(CacheReader& reader, int modelId) {
         return 1;
     }
 
-    Model model = Model::parse(modelData);
+    Buffer modelBuf(modelData);
+    Model model = Model::parse(modelBuf);
     ModelBounds bounds = model.bounds();
 
     std::cout << "Model " << modelId << "\n";
     std::cout << "  raw decompressed bytes: " << modelData.size() << "\n";
-    std::cout << "  vertices: " << model.vertices().size() << "\n";
-    std::cout << "  triangles: " << model.triangles().size() << "\n";
-    std::cout << "  textured triangles: " << model.textureTriangles().size() << "\n";
-    std::cout << "  vertex skins: " << model.vertexSkins().size() << "\n";
+    std::cout << "  vertices: " << model.vertices.size() << "\n";
+    std::cout << "  triangles: " << model.triangles.size() << "\n";
+    std::cout << "  textured triangles: " << model.textureTriangles.size() << "\n";
+    std::cout << "  vertex skins: " << model.vertexSkins.size() << "\n";
     std::cout << "  bounds x=[" << bounds.minX << "," << bounds.maxX << "]"
               << " y=[" << bounds.minY << "," << bounds.maxY << "]"
               << " z=[" << bounds.minZ << "," << bounds.maxZ << "]\n";
 
-    std::cout << "  vertex sample\n";
-    for (std::size_t i = 0; i < std::min<std::size_t>(5, model.vertices().size()); i++) {
-        const ModelVertex& v = model.vertices()[i];
-        std::cout << "    " << i << ": (" << v.x << "," << v.y << "," << v.z << ")\n";
+    std::cout << "\n  ALL vertices (" << model.vertices.size() << "):\n";
+    for (std::size_t i = 0; i < model.vertices.size(); i++) {
+        const ModelVertex& v = model.vertices[i];
+        std::cout << "    v[" << i << "] = (" << v.x << ", " << v.y << ", " << v.z << ")\n";
     }
 
-    std::cout << "  triangle sample\n";
-    for (std::size_t i = 0; i < std::min<std::size_t>(5, model.triangles().size()); i++) {
-        const ModelTriangle& t = model.triangles()[i];
-        std::cout << "    " << i << ": vertices=(" << t.a << "," << t.b << "," << t.c << ")"
-                  << " color=" << t.color
-                  << " renderType=" << t.renderType
-                  << " priority=" << t.priority
-                  << " alpha=" << t.alpha
-                  << " skin=" << t.skin
+    std::cout << "\n  ALL triangles (" << model.triangles.size() << "):\n";
+    std::cout << "    idx   a    b    c   color   H  S   L   type  prio  alpha  skin\n";
+    for (std::size_t i = 0; i < model.triangles.size(); i++) {
+        const ModelTriangle& t = model.triangles[i];
+        int hue = (t.color >> 10) & 0x3F;
+        int sat = (t.color >> 7)  & 0x07;
+        int lit =  t.color        & 0x7F;
+        std::cout << "    " << std::setw(3) << i
+                  << "  " << std::setw(3) << t.a
+                  << "  " << std::setw(3) << t.b
+                  << "  " << std::setw(3) << t.c
+                  << "  " << std::setw(5) << t.color
+                  << "  " << std::setw(2) << hue
+                  << "  " << sat
+                  << "  " << std::setw(3) << lit
+                  << "  " << std::setw(4) << t.renderType
+                  << "  " << std::setw(4) << t.priority
+                  << "  " << std::setw(5) << t.alpha
+                  << "  " << std::setw(4) << t.skin
                   << "\n";
+    }
+
+    if (!model.textureTriangles.empty()) {
+        std::cout << "\n  ALL texture triangles (" << model.textureTriangles.size() << "):\n";
+        for (std::size_t i = 0; i < model.textureTriangles.size(); i++) {
+            const ModelTextureTriangle& tt = model.textureTriangles[i];
+            std::cout << "    tt[" << i << "] = (" << tt.a << ", " << tt.b << ", " << tt.c << ")\n";
+        }
     }
 
     return 0;
