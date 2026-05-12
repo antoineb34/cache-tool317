@@ -354,7 +354,8 @@ The client has been **completely rewritten from scratch** to be a minimal, educa
 Current client (`client/src/main.cpp`):
 - **SDL3** window + **OpenGL 2.1 immediate mode** context
 - Single-file implementation (no `ClientApp` class, no headers)
-- Loads **one model** from the cache (model 1219 from idx1) and renders it as a **wireframe**
+- Loads **one model** from the cache (model 1219 from idx1) and renders it as **filled colored triangles + wireframe overlay**
+- Uses **real RS 317 palette colors** — 65,536-entry HSL→RGB lookup table from the original client algorithm
 - Uses **perspective projection** (custom `perspective()` matrix, not `gluPerspective`)
 - Frame-rate independent camera controls
 
@@ -374,24 +375,28 @@ Graphics concepts learned so far:
 8. `GL_LINES` for wireframe rendering
 9. Double buffering (`SDL_GL_SwapWindow`)
 10. Frame-rate independent movement (`deltaTime` from `SDL_GetTicks`)
+11. Filled triangle rendering (`GL_TRIANGLES` with `glColor3ub`)
+12. RS 317 HSL→RGB palette generation (exact client algorithm, 65,536 entries)
+13. Coordinate system conversion (RS Y-down → OpenGL Y-up via negation)
+14. Face culling / winding order (`glFrontFace`, vertex order reversal, `glDisable(GL_CULL_FACE)`)
+15. Model orientation fix (180° Y rotation so RS +Z-front faces OpenGL camera)
 
 The user understands `core/` (cache reading, definitions, map decode) but is learning graphics from zero. The agent must teach OpenGL concepts step-by-step before writing code.
 
 The CLI `tool` remains available for detailed cache/debug inspection.
 
 ### Model Decoding
-Initial `idx1` model decoding is implemented in `core/include/Model.h` + `core/src/Model.cpp`.
+`idx1` model decoding is implemented in `core/include/Model.h` + `core/src/Model.cpp`.
 
-Currently parsed:
-- vertices
-- triangle indices
-- face colors
-- optional face render types, priorities, alpha, skins
-- optional vertex skins
-- textured triangle index triples
-- model bounds
+Refactored from class to struct to match project conventions. Public fields:
+- `vertices` — `std::vector<ModelVertex>` with `{int x, y, z}`
+- `triangles` — `std::vector<ModelTriangle>` with `{int a, b, c; int color; int renderType; int priority; int alpha; int skin;}`
+- `textureTriangles` — `std::vector<ModelTextureTriangle>`
+- `vertexSkins` — `std::vector<int>`
 
-The decoder handles the classic 317 model footer/offset layout and uses model-local signed smart reads for vertex and triangle deltas.
+Parser uses `Buffer` for all reads (no custom `ModelReader` class). Added `Buffer::readSignedSmart()` for model delta encoding.
+
+The decoder handles the classic 317 model footer/offset layout with strict bounds validation via `require()`.
 
 The CLI can inspect one model:
 ```bash
@@ -406,7 +411,7 @@ Model 1835: vertices=76 triangles=122 textured=0 bounds x=[-26,57] y=[-85,1] z=[
 Model 2141: vertices=68 triangles=120 textured=5 bounds x=[-48,48] y=[-80,0] z=[-48,48]
 ```
 
-Client play mode now connects object placements to `LocDef.modelIDs`, loads unique selected models from `idx1`, and draws nearby placements as flat-shaded colored triangles. Model face colors are converted from the RS 16-bit HSL format to RGB using the original client's palette algorithm. If a loc has `modelTypes`, the placed `MapObject::type` selects the matching model id; untyped locs fall back to their first model id. The renderer applies placement rotation plus `LocDef` scale and offset fields. Lighting, animation, and exact origin/alignment behavior are still pending.
+Client play mode previously connected object placements to `LocDef.modelIDs` and drew nearby placements as flat-shaded colored triangles. That complex client was deleted and replaced with the current minimal educational renderer. The old rendering pipeline (lighting, placement transforms, `LocDef` scale/offset) is archived in git history and can be referenced when rebuilding.
 
 Future client/editor split:
 ```text
@@ -501,13 +506,17 @@ Current learning path (graphics):
 7. ✅ Switch to 3D: perspective projection matrix
 8. ✅ Load and render a single model wireframe
 9. ✅ Camera controls: rotate (mouse drag), zoom (wheel), pan (arrows)
-10. ⏳ Frame-rate independent timing
+10. ✅ Frame-rate independent timing
+11. ✅ Fill triangles with solid colors (wireframe → filled faces)
+12. ✅ Real RS 317 palette colors (HSL → RGB 65,536-entry lookup)
+13. ✅ Fix model orientation (Y flip, winding order, 180° rotation)
 
 Immediate next topics (user decides order):
-- Fill triangles with solid colors (wireframe → filled faces)
-- Use real face colors from the model (HSL → RGB palette lookup)
-- Render the model at actual world positions on the map terrain
-- Add more models / object placements
+- Remove dark wireframe overlay (or make it toggleable)
+- Add depth testing (`GL_DEPTH_TEST`) so faces properly occlude each other
+- Add per-face lighting (compute normals, apply light dot-product like old client)
+- Render model on actual map terrain at world positions
+- Load and render multiple models / object placements
 - Textures (after solid-color rendering is solid)
 
 The user decides direction. The agent explains concepts, then writes minimal code, then builds and verifies. No dumping entire files.
@@ -554,8 +563,11 @@ const MapIndexEntry* entry = versionList.findMapRegion(regionId);
 ---
 
 ## Planned but Not Started
-- Model viewer with solid colors and real face colors
+- Depth testing for proper face occlusion
+- Per-face lighting (normal-based brightness like original client)
+- Remove or toggle wireframe overlay
 - Model placement on map terrain at correct world positions
+- Multiple models / object placements
 - Textured triangle rendering
 - Playable game-client runtime
 - Dear ImGui editor panels
