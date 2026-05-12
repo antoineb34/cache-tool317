@@ -23,6 +23,10 @@ public:
     Archive readArchive(int archiveId, int fileId);
     std::vector<uint8_t> readGzippedFile(int archiveId, int fileId);
 
+    // quick index checks without reading file data
+    int getFileCount(int archiveId) const;
+    bool hasFile(int archiveId, int fileId) const;
+
 private:
     // reads a single 6-byte index entry from an idx file
     IndexEntry readIndex(int archiveId, int fileId);
@@ -30,6 +34,6 @@ private:
     // reads a single 520-byte sector from the .dat file
     Sector readSector(uint32_t sectorNum);
 
-    std::ifstream              dat;    // handle for main_file_cache.dat
-    std::array<std::ifstream, 5> idx;  // handles for idx0 through idx4
+    std::ifstream              dat;           // handle for main_file_cache.dat
+    mutable std::array<std::ifstream, 5> idx; // handles for idx0 through idx4
 };

@@ -22,7 +22,6 @@ target_sources(core PRIVATE
     src/MapTerrain.cpp
     src/MapObjects.cpp
     src/MapRegion.cpp
-    src/Model.cpp
     src/RegionRenderer2D.cpp
 )
 

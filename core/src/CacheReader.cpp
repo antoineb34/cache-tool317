@@ -185,3 +185,22 @@ std::vector<uint8_t> CacheReader::readGzippedFile(int archiveId, int fileId) {
     if (raw.empty()) return {};
     return decompressGzip(raw.data(), static_cast<uint32_t>(raw.size()));
 }
+
+int CacheReader::getFileCount(int archiveId) const {
+    if (archiveId < 0 || archiveId >= 5) return 0;
+    idx[archiveId].seekg(0, std::ios::end);
+    auto size = idx[archiveId].tellg();
+    return static_cast<int>(size / 6);
+}
+
+bool CacheReader::hasFile(int archiveId, int fileId) const {
+    if (archiveId < 0 || archiveId >= 5) return false;
+    idx[archiveId].seekg(fileId * 6);
+    std::array<uint8_t, 6> bytes;
+    idx[archiveId].read(reinterpret_cast<char*>(bytes.data()), 6);
+    if (!idx[archiveId].good()) return false;
+    Buffer buf(bytes.data(), 6);
+    uint32_t size        = buf.readTribyte();
+    uint32_t firstSector = buf.readTribyte();
+    return size != 0 && firstSector != 0 && size != 0xFFFFFF && firstSector != 0xFFFFFF;
+}
