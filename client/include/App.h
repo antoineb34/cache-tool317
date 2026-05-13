@@ -16,7 +16,16 @@ private:
     void render();
     void shutdown();
 
+    // Triangle
+    bool initTriangle();
+    void destroyTriangle();
+    GLuint createShader(GLenum type, const char* source);
+
     SDL_Window* window_;
     SDL_GLContext glContext_;
     bool running_;
+
+    GLuint vao_;
+    GLuint vbo_;
+    GLuint shaderProgram_;
 };
