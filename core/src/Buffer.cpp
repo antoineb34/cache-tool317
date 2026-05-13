@@ -11,13 +11,11 @@ Buffer::Buffer(const uint8_t* data, std::size_t size)
     : data_(data, data + size), pos(0) {}
 
 void Buffer::checkRemaining(int bytesNeeded) const {
-#ifdef DEBUG_BUFFER
     if (pos + bytesNeeded > (int)data_.size()) {
         throw std::runtime_error("Buffer: read past end of buffer (pos=" + std::to_string(pos) +
                                ", need=" + std::to_string(bytesNeeded) +
                                ", size=" + std::to_string(data_.size()) + ")");
     }
-#endif
 }
 
 // --- Basic read methods (advance position) ---
@@ -38,27 +36,21 @@ std::string Buffer::readString() {
 }
 
 uint32_t Buffer::readSmart() {
-#ifdef DEBUG_BUFFER
     checkRemaining(1);
-#endif
     uint8_t value = data_[pos];
     if (value < 128) return readByte();
     return readUShort() - 32768;
 }
 
 int Buffer::readSignedSmart() {
-#ifdef DEBUG_BUFFER
     checkRemaining(1);
-#endif
     uint8_t value = data_[pos];
     if (value < 128) return static_cast<int>(readByte()) - 64;
     return static_cast<int>(readUShort()) - 49152;
 }
 
 std::vector<uint8_t> Buffer::readBytes(int n) {
-#ifdef DEBUG_BUFFER
     checkRemaining(n);
-#endif
     std::vector<uint8_t> result;
     result.reserve(n);
     result.assign(data_.begin() + pos, data_.begin() + pos + n);
@@ -72,30 +64,34 @@ std::vector<uint8_t> Buffer::readBytes(int n) {
 // --- Position management ---
 
 void Buffer::skip(int n) {
-#ifdef DEBUG_BUFFER
     checkRemaining(n);
-#endif
     pos += n;
 }
 
 void Buffer::seek(int newPos) {
-    if (newPos < 0) newPos = 0;
-    if (newPos > (int)data_.size()) newPos = data_.size();
+    if (newPos < 0 || newPos > (int)data_.size()) {
+        throw std::runtime_error("Buffer: seek position out of range (pos=" + std::to_string(newPos) +
+                               ", size=" + std::to_string(data_.size()) + ")");
+    }
     pos = newPos;
 }
 
 // --- Data access ---
 
 std::vector<uint8_t> Buffer::slice(int start, int end) const {
-    if (start < 0) start = 0;
-    if (end > (int)data_.size()) end = data_.size();
-    if (start > end) start = end;
+    if (start < 0 || end > (int)data_.size() || start > end) {
+        throw std::runtime_error("Buffer: slice range invalid (start=" + std::to_string(start) +
+                               ", end=" + std::to_string(end) +
+                               ", size=" + std::to_string(data_.size()) + ")");
+    }
     return std::vector<uint8_t>(data_.begin() + start, data_.begin() + end);
 }
 
 std::span<const uint8_t> Buffer::span(int start, int end) const {
-    if (start < 0) start = 0;
-    if (end > (int)data_.size()) end = data_.size();
-    if (start > end) start = end;
+    if (start < 0 || end > (int)data_.size() || start > end) {
+        throw std::runtime_error("Buffer: span range invalid (start=" + std::to_string(start) +
+                               ", end=" + std::to_string(end) +
+                               ", size=" + std::to_string(data_.size()) + ")");
+    }
     return std::span<const uint8_t>(data_.data() + start, end - start);
 }
