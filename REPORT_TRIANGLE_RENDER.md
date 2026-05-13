@@ -6,7 +6,7 @@
 
 ## Commit Hash
 
-(Pending — to be filled after push)
+`e07df9b` — "Add minimal hardcoded OpenGL triangle"
 
 ## Files Changed
 
