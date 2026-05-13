@@ -29,3 +29,5 @@ region_*.ppm
 *.swp
 *.swo
 .DS_Store
+build-release/
+*.ppm
