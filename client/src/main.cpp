@@ -6,6 +6,7 @@
 
 #include "CacheReader.h"
 #include "ModelDef.h"
+#include "TextureLoader.h"
 #include "Mat4.h"
 #include "ModelRenderer.h"
 
@@ -15,8 +16,25 @@ int main(int argc, char* argv[]) {
     CacheReader reader;
     if (!reader.open(argv[1])) { std::cerr << "Failed to open cache\n"; return 1; }
 
+    // Load textures from archive 0 file 6
+    auto texArchivePtr = reader.readArchive(0, 6);
+    if (!texArchivePtr) { std::cerr << "Failed to read textures archive\n"; return 1; }
+    Archive& texArchive = *texArchivePtr;
+    TextureLoader texLoader;
+    texLoader.load(texArchive);
+    std::vector<TextureDef> textures;
+    for (int i = 0; i < texLoader.textureCount(); i++) {
+        textures.push_back(texLoader.getTexture(i));
+    }
+    std::cout << "Loaded " << textures.size() << " textures\n";
+
     int modelId = argc >= 3 ? std::stoi(argv[2]) : 0;
-    ModelDef model = ModelDef::parse(modelId, reader.readGzippedFile(1, modelId));
+    Buffer modelBuf = reader.readGzippedFile(1, modelId);
+    if (modelBuf.empty()) {
+        std::cerr << "Model " << modelId << " not found\n";
+        return 1;
+    }
+    ModelDef model = ModelDef::parse(modelId, modelBuf);
     std::cout << "Model " << modelId << ": "
               << model.vertexX.size() << " verts, "
               << model.triA.size()    << " tris\n";
@@ -34,7 +52,7 @@ int main(int argc, char* argv[]) {
     std::cout << "OpenGL: " << glGetString(GL_VERSION) << "\n";
 
     ModelRenderer renderer;
-    renderer.load(model);
+    renderer.load(model, textures);
 
     float  camDist = renderer.boundingRadius() * 2.5f;
     float  cx      = renderer.centerX();

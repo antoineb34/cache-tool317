@@ -3,20 +3,38 @@
 ## Current Work
 
 **Done:**
-- All cache I/O: `Buffer`, `CacheReader`, `Archive`
-- All definition parsers: `ItemDef`, `NpcDef`, `LocDef`, `FloDef`, `SeqDef`, `SpotAnimDef`, `VarbitDef`, `VarpDef`, `MesAnimDef`, `MesDef`, `ParamDef`, `IdkDef`
+- All cache I/O: `Buffer` (optimized, move semantics), `CacheReader` (clean API), `Archive`
+- `CacheReader` API:
+  - `readFile()` — raw file as `Buffer`
+  - `readGzippedFile()` — gzip decompress to `Buffer`
+  - `readArchive()` — parse JAG sub-archive, returns `Archive` with `Buffer` files (now returns `shared_ptr<Archive>` for caching)
+- **Cache reader performance optimizations:**
+  - Memory-mapped I/O for `.dat` file (mmap) — eliminates `read()` syscalls
+  - Memory-mapped I/O for `.idx` index files (mmap) — eliminates `seekg()`/`read()` syscalls
+  - Archive caching — avoids repeated BZip2 decompression (5-9x faster repeated reads)
+  - Sector batch reading — reads all sectors in one operation
+  - Sub-microsecond `hasFile()` and `getFileCount()` (16-59x faster with mmap)
+- All definition parsers updated to accept `Buffer&` (zero-copy parsing):
+  - `ModelDef::parse(int id, Buffer& buf)`
+  - `TextureDef::parse(int id, Buffer& data, Buffer& paletteData)`
+  - All other def parsers already use `Buffer&`
 - Map parsing: `MapRegion`, `MapTerrain`, `MapObjects`
 - 2D map renderer: `RegionRenderer2D`
+- **Benchmark suite:** `BufferBenchmark.cpp` and `CacheBenchmark.cpp` for performance testing
 
 **In progress:**
 - Model renderer working: HSL face colors, depth test, backface culling, textured-face detection
+- **Texture decoding implemented**: `TextureDef`, `TextureLoader` updated for `Buffer&`
+- Textured faces now render with actual textures (simplified UV mapping)
 - Unused ModelDef fields (triAlpha, triPriority, triSkin, vertexSkin, texP/Q/R) are parsed and ready — intentionally deferred until textures/animations are tackled
-- Next: orbit camera then map renderer
+- **Cache reader optimizations complete** — mmap I/O, archive caching, sub-microsecond file checks
+- Next: proper UV mapping using texP/Q/R, then orbit camera
 
 **Up next:**
-1. Orbit camera — mouse controls to rotate/zoom instead of auto-spin
-2. 3D map renderer (objects placed on terrain)
-3. Textures (archive 6) — needed to fix textured faces currently shown as grey
+1. **Proper texture UV mapping** — use `texP/Q/R` vertices for correct texture coordinates on faces
+2. Orbit camera — mouse controls to rotate/zoom instead of auto-spin
+3. 3D map renderer (objects placed on terrain)
+4. Texture animation support (if applicable)
 
 **End goal:**
 Full RS317 client + integrated cache editor — modify any game file (items, map, models, etc.) and write it back to the cache.
@@ -38,9 +56,20 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 cmake --build build
 ```
 
+For benchmarks (optional):
+```bash
+cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release -DBUILD_BENCHMARKS=ON
+cmake --build build-release
+# Run benchmarks:
+./build-release/bin/buffer_benchmark
+./build-release/bin/cache_benchmark <path-to-cache-folder>
+```
+
 Binaries:
 - `build/bin/tool` — CLI cache inspection tool
 - `build/bin/client` — windowed game client (currently empty — model renderer being built)
+- `build/bin/buffer_benchmark` — Buffer performance benchmark (with BUILD_BENCHMARKS=ON)
+- `build/bin/cache_benchmark` — CacheReader performance benchmark (with BUILD_BENCHMARKS=ON)
 
 ## Directory Map
 

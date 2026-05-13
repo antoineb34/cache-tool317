@@ -1,5 +1,5 @@
 #include "ItemDef.h"
-
+#include "Buffer.h"
 #include <stdexcept>
 #include <string>
 
@@ -14,10 +14,11 @@ ItemDef ItemDef::parse(Buffer& buf) {
     ItemDef def;
 
     while (true) {
+        // Read opcode once
         int opcode = buf.readByte();
-
+        
         if (opcode == 0) break;
-
+        
         switch (opcode) {
             case 1:  def.modelId     = buf.readUShort(); break;
             case 2:  def.name        = buf.readString(); break;
@@ -45,9 +46,11 @@ ItemDef ItemDef::parse(Buffer& buf) {
             // colour recoloring: 1 byte count, then N pairs of uint16
             case 40: {
                 int count = buf.readByte();
+                def.originalColors.resize(count);
+                def.replacementColors.resize(count);
                 for (int i = 0; i < count; i++) {
-                    def.originalColors.push_back(buf.readUShort());
-                    def.replacementColors.push_back(buf.readUShort());
+                    def.originalColors[i] = buf.readUShort();
+                    def.replacementColors[i] = buf.readUShort();
                 }
                 break;
             }

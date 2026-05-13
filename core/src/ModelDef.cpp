@@ -3,102 +3,150 @@
 #include <stdexcept>
 #include <string>
 
-ModelDef ModelDef::parse(int id, const std::vector<uint8_t>& data) {
-    if ((int)data.size() < 18)
+ModelDef ModelDef::parse(int id, Buffer& buf) {
+    int dataSize = buf.size();
+    if (dataSize < 18)
         throw std::runtime_error("ModelDef " + std::to_string(id) + ": data too small");
 
     ModelDef def;
     def.id = id;
 
     // --- read footer (last 18 bytes) ---
-    const uint8_t* f = data.data() + data.size() - 18;
-    auto ru16 = [](const uint8_t* p, int off) -> int {
-        return (p[off] << 8) | p[off + 1];
+    buf.seek(dataSize - 18);
+    
+    auto readU16 = [&]() -> uint16_t {
+        return buf.readUShort();
     };
 
-    int     vertexCount       = ru16(f,  0);
-    int     triangleCount     = ru16(f,  2);
-    int     texTriCount       = f[4];
-    bool    hasFaceRenderTypes = f[5] == 1;
-    uint8_t priorityFlag      = f[6];
-    bool    hasFaceAlpha      = f[7] == 1;
-    bool    hasFaceSkins      = f[8] == 1;
-    bool    hasVertexSkins    = f[9] == 1;
-    int     vertexXLen        = ru16(f, 10);
-    int     vertexYLen        = ru16(f, 12);
-    int     vertexZLen        = ru16(f, 14);
-    int     triIndexLen       = ru16(f, 16);
+    int     vertexCount       = readU16();
+    int     triangleCount     = readU16();
+    int     texTriCount       = buf.readByte();
+    bool    hasFaceRenderTypes = buf.readByte() == 1;
+    uint8_t priorityFlag      = buf.readByte();
+    bool    hasFaceAlpha      = buf.readByte() == 1;
+    bool    hasFaceSkins      = buf.readByte() == 1;
+    bool    hasVertexSkins    = buf.readByte() == 1;
+    int     vertexXLen        = readU16();
+    int     vertexYLen        = readU16();
+    int     vertexZLen        = readU16();
+    int     triIndexLen       = readU16();
+
+    // Validate total size
+    int expectedSize = vertexCount + triangleCount 
+        + (priorityFlag == 255 ? triangleCount : 0)
+        + (hasFaceSkins ? triangleCount : 0)
+        + (hasFaceRenderTypes ? triangleCount : 0)
+        + (hasVertexSkins ? vertexCount : 0)
+        + (hasFaceAlpha ? triangleCount : 0)
+        + triIndexLen
+        + triangleCount * 2
+        + texTriCount * 6
+        + vertexXLen + vertexYLen + vertexZLen
+        + 18;  // footer
+    
+    if (dataSize < expectedSize) {
+        throw std::runtime_error("ModelDef " + std::to_string(id) + ": data too small for declared sizes");
+    }
 
     // --- compute block offsets (sequential from byte 0) ---
     int offset = 0;
-    int vertexFlagsOff    = offset; offset += vertexCount;
-    int triOpcodesOff     = offset; offset += triangleCount;
-    int facePriorityOff   = offset; if (priorityFlag == 255) offset += triangleCount;
-    int faceSkinOff       = offset; if (hasFaceSkins)        offset += triangleCount;
-    int faceRenderTypeOff = offset; if (hasFaceRenderTypes)  offset += triangleCount;
-    int vertexSkinOff     = offset; if (hasVertexSkins)      offset += vertexCount;
-    int faceAlphaOff      = offset; if (hasFaceAlpha)        offset += triangleCount;
-    int triIndexOff       = offset; offset += triIndexLen;
-    int faceColorOff      = offset; offset += triangleCount * 2;
-    int texTriOff         = offset; offset += texTriCount * 6;
-    int vertexXOff        = offset; offset += vertexXLen;
-    int vertexYOff        = offset; offset += vertexYLen;
-    int vertexZOff        = offset;
+    auto nextBlock = [&](int size) {
+        int blockStart = offset;
+        offset += size;
+        return blockStart;
+    };
 
-    const uint8_t* raw = data.data();
+    int vertexFlagsOff    = nextBlock(vertexCount);
+    int triOpcodesOff    = nextBlock(triangleCount);
+    int facePriorityOff  = nextBlock(priorityFlag == 255 ? triangleCount : 0);
+    int faceSkinOff      = nextBlock(hasFaceSkins ? triangleCount : 0);
+    int faceRenderTypeOff= nextBlock(hasFaceRenderTypes ? triangleCount : 0);
+    int vertexSkinOff    = nextBlock(hasVertexSkins ? vertexCount : 0);
+    int faceAlphaOff     = nextBlock(hasFaceAlpha ? triangleCount : 0);
+    int triIndexOff      = nextBlock(triIndexLen);
+    int faceColorOff     = nextBlock(triangleCount * 2);
+    int texTriOff        = nextBlock(texTriCount * 6);
+    int vertexXOff       = nextBlock(vertexXLen);
+    int vertexYOff       = nextBlock(vertexYLen);
+    int vertexZOff       = nextBlock(vertexZLen);
+
+    // --- Helper to seek to a block ---
+    auto seekToBlock = [&](int start, int size) {
+        buf.seek(start);
+    };
 
     // --- decode vertices ---
-    Buffer vertexFlags(raw + vertexFlagsOff, vertexCount);
-    Buffer xBuf(raw + vertexXOff, vertexXLen);
-    Buffer yBuf(raw + vertexYOff, vertexYLen);
-    Buffer zBuf(raw + vertexZOff, vertexZLen);
+    seekToBlock(vertexFlagsOff, vertexCount);
+    seekToBlock(vertexXOff, vertexXLen);
+    seekToBlock(vertexYOff, vertexYLen);
+    seekToBlock(vertexZOff, vertexZLen);
 
     def.vertexX.resize(vertexCount);
     def.vertexY.resize(vertexCount);
     def.vertexZ.resize(vertexCount);
 
+    // Re-seek to read vertex flags from the start
+    buf.seek(vertexFlagsOff);
+    std::vector<uint8_t> vertexFlags(vertexCount);
+    for (int i = 0; i < vertexCount; i++) vertexFlags[i] = buf.readByte();
+
+    buf.seek(vertexXOff);
+    std::vector<int> xDeltas(vertexXLen > 0 ? vertexCount : 0);
+    for (int i = 0; i < vertexCount && vertexXLen > 0; i++) xDeltas[i] = buf.readSignedSmart();
+
+    buf.seek(vertexYOff);
+    std::vector<int> yDeltas(vertexYLen > 0 ? vertexCount : 0);
+    for (int i = 0; i < vertexCount && vertexYLen > 0; i++) yDeltas[i] = buf.readSignedSmart();
+
+    buf.seek(vertexZOff);
+    std::vector<int> zDeltas(vertexZLen > 0 ? vertexCount : 0);
+    for (int i = 0; i < vertexCount && vertexZLen > 0; i++) zDeltas[i] = buf.readSignedSmart();
+
     int x = 0, y = 0, z = 0;
     for (int i = 0; i < vertexCount; i++) {
-        int flags = vertexFlags.readByte();
-        if (flags & 1) x += xBuf.readSignedSmart();
-        if (flags & 2) y += yBuf.readSignedSmart();
-        if (flags & 4) z += zBuf.readSignedSmart();
+        int flags = vertexFlags[i];
+        if (flags & 1) x += (vertexXLen > 0) ? xDeltas[i] : 0;
+        if (flags & 2) y += (vertexYLen > 0) ? yDeltas[i] : 0;
+        if (flags & 4) z += (vertexZLen > 0) ? zDeltas[i] : 0;
         def.vertexX[i] = x;
         def.vertexY[i] = y;
         def.vertexZ[i] = z;
     }
 
     if (hasVertexSkins) {
-        Buffer vSkinBuf(raw + vertexSkinOff, vertexCount);
+        buf.seek(vertexSkinOff);
         def.vertexSkin.resize(vertexCount);
         for (int i = 0; i < vertexCount; i++)
-            def.vertexSkin[i] = vSkinBuf.readByte();
+            def.vertexSkin[i] = buf.readByte();
     }
 
     // --- decode triangle indices ---
-    Buffer opcodes(raw + triOpcodesOff, triangleCount);
-    Buffer triIdx(raw + triIndexOff, triIndexLen);
+    buf.seek(triOpcodesOff);
+    std::vector<uint8_t> opcodes(triangleCount);
+    for (int i = 0; i < triangleCount; i++) opcodes[i] = buf.readByte();
 
+    buf.seek(triIndexOff);
+    
     def.triA.resize(triangleCount);
     def.triB.resize(triangleCount);
     def.triC.resize(triangleCount);
 
     int a = 0, b = 0, c = 0, last = 0;
     for (int i = 0; i < triangleCount; i++) {
-        int op = opcodes.readByte();
+        int op = opcodes[i];
         if (op == 1) {
-            a = triIdx.readSignedSmart() + last; last = a;
-            b = triIdx.readSignedSmart() + last; last = b;
-            c = triIdx.readSignedSmart() + last; last = c;
+            a = buf.readSignedSmart() + last; last = a;
+            b = buf.readSignedSmart() + last; last = b;
+            c = buf.readSignedSmart() + last; last = c;
         } else if (op == 2) {
             b = c;
-            c = triIdx.readSignedSmart() + last; last = c;
+            c = buf.readSignedSmart() + last; last = c;
         } else if (op == 3) {
             a = c;
-            c = triIdx.readSignedSmart() + last; last = c;
+            c = buf.readSignedSmart() + last; last = c;
         } else if (op == 4) {
             std::swap(a, b);
-            c = triIdx.readSignedSmart() + last; last = c;
+            c = buf.readSignedSmart() + last; last = c;
         } else {
             throw std::runtime_error("ModelDef " + std::to_string(id)
                 + ": unknown triangle opcode " + std::to_string(op));
@@ -109,52 +157,52 @@ ModelDef ModelDef::parse(int id, const std::vector<uint8_t>& data) {
     }
 
     // --- face colors ---
-    Buffer colorBuf(raw + faceColorOff, triangleCount * 2);
+    buf.seek(faceColorOff);
     def.triColor.resize(triangleCount);
     for (int i = 0; i < triangleCount; i++)
-        def.triColor[i] = colorBuf.readUShort();
+        def.triColor[i] = buf.readUShort();
 
     // --- optional per-face data ---
     if (hasFaceRenderTypes) {
-        Buffer renderBuf(raw + faceRenderTypeOff, triangleCount);
+        buf.seek(faceRenderTypeOff);
         def.triRenderType.resize(triangleCount);
         for (int i = 0; i < triangleCount; i++)
-            def.triRenderType[i] = renderBuf.readByte();
+            def.triRenderType[i] = buf.readByte();
     }
 
     if (priorityFlag == 255) {
-        Buffer priBuf(raw + facePriorityOff, triangleCount);
+        buf.seek(facePriorityOff);
         def.triPriority.resize(triangleCount);
         for (int i = 0; i < triangleCount; i++)
-            def.triPriority[i] = priBuf.readByte();
+            def.triPriority[i] = buf.readByte();
     } else {
         def.sharedPriority = priorityFlag;
     }
 
     if (hasFaceAlpha) {
-        Buffer alphaBuf(raw + faceAlphaOff, triangleCount);
+        buf.seek(faceAlphaOff);
         def.triAlpha.resize(triangleCount);
         for (int i = 0; i < triangleCount; i++)
-            def.triAlpha[i] = alphaBuf.readByte();
+            def.triAlpha[i] = buf.readByte();
     }
 
     if (hasFaceSkins) {
-        Buffer fSkinBuf(raw + faceSkinOff, triangleCount);
+        buf.seek(faceSkinOff);
         def.triSkin.resize(triangleCount);
         for (int i = 0; i < triangleCount; i++)
-            def.triSkin[i] = fSkinBuf.readByte();
+            def.triSkin[i] = buf.readByte();
     }
 
     // --- texture triangles ---
     if (texTriCount > 0) {
-        Buffer texBuf(raw + texTriOff, texTriCount * 6);
+        buf.seek(texTriOff);
         def.texP.resize(texTriCount);
         def.texQ.resize(texTriCount);
         def.texR.resize(texTriCount);
         for (int i = 0; i < texTriCount; i++) {
-            def.texP[i] = texBuf.readUShort();
-            def.texQ[i] = texBuf.readUShort();
-            def.texR[i] = texBuf.readUShort();
+            def.texP[i] = buf.readUShort();
+            def.texQ[i] = buf.readUShort();
+            def.texR[i] = buf.readUShort();
         }
     }
 

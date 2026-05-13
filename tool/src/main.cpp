@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <map>
@@ -7,6 +8,7 @@
 #include "CacheReader.h"
 #include "DefinitionsLoader.h"
 #include "ModelDef.h"
+#include "TextureDef.h"
 #include "VersionList.h"
 #include "MapRegion.h"
 #include "RegionRenderer2D.h"
@@ -27,6 +29,86 @@ int main(int argc, char* argv[]) {
     }
 
     try {
+        // dump_textures: list all files in the textures JAG archive and probe naming patterns
+        if (argc >= 3 && std::string(argv[2]) == "dump_textures") {
+            auto texArchivePtr = reader.readArchive(0, 6);
+            if (!texArchivePtr) { std::cerr << "Failed to read textures archive\n"; return 1; }
+            Archive& texArchive = *texArchivePtr;
+            std::cout << "Textures archive: " << texArchive.size() << " files\n\n";
+
+            // list every file by hash and size
+            std::cout << "All files (hash -> size):\n";
+            std::map<uint32_t,int> sorted;
+            for (auto& [hash, data] : texArchive.files)
+                sorted[hash] = (int)data.size();
+            for (auto& [hash, size] : sorted)
+                std::cout << "  0x" << std::hex << std::setw(8) << std::setfill('0') << hash
+                          << "  " << std::dec << size << " bytes\n";
+
+            // probe common naming patterns to identify how textures are named
+            std::cout << "\nProbing naming patterns (id 0..4):\n";
+            for (int i = 0; i < 5; i++) {
+                for (const std::string& name : {
+                    std::to_string(i) + ".dat",
+                    std::to_string(i),
+                    "texture" + std::to_string(i) + ".dat"
+                }) {
+                    if (texArchive.hasFile(name)) {
+                        const Buffer& d = texArchive.getFile(name);
+                        std::cout << "  FOUND \"" << name << "\" -> " << d.size() << " bytes\n";
+                    }
+                }
+            }
+            return 0;
+        }
+
+        // dump_texture <id>: use TextureDef to decode and render as PPM
+        if (argc >= 3 && std::string(argv[2]) == "dump_texture") {
+            int texId = argc >= 4 ? std::stoi(argv[3]) : 0;
+            auto texArchivePtr = reader.readArchive(0, 6);
+            if (!texArchivePtr) { std::cerr << "Failed to read textures archive\n"; return 1; }
+            Archive& texArchive = *texArchivePtr;
+
+            // Get palette from index.dat
+            const Buffer& indexData = texArchive.getFile("index.dat");
+            if (indexData.empty()) {
+                std::cerr << "index.dat not found in textures archive\n";
+                return 1;
+            }
+
+            // Get texture file
+            std::string name = std::to_string(texId) + ".dat";
+            const Buffer& texData = texArchive.getFile(name);
+            if (texData.empty()) {
+                std::cerr << "Texture " << texId << " not found\n";
+                return 1;
+            }
+
+            // Parse using TextureDef
+            Buffer dataCopy(texData.slice(0, texData.size()));
+            Buffer paletteCopy(indexData.slice(0, indexData.size()));
+            TextureDef tex = TextureDef::parse(texId, dataCopy, paletteCopy);
+
+            std::cout << "Texture " << texId << ": " << tex.width << "x" << tex.height
+                      << ", " << tex.pixels.size() << " pixels, "
+                      << tex.palette.size() / 3 << " palette colors\n";
+
+            // Render as PPM
+            std::string ppmPath = "texture_" + std::to_string(texId) + ".ppm";
+            std::ofstream ppm(ppmPath, std::ios::binary);
+            ppm << "P6\n" << tex.width << " " << tex.height << "\n255\n";
+            for (int y = 0; y < tex.height; y++) {
+                for (int x = 0; x < tex.width; x++) {
+                    uint32_t rgb = tex.getPixelRGB(x, y);
+                    ppm.put((rgb >> 16) & 0xFF);
+                    ppm.put((rgb >> 8) & 0xFF);
+                    ppm.put(rgb & 0xFF);
+                }
+            }
+            std::cout << "Wrote " << ppmPath << "\n";
+            return 0;
+        }
+
         // dump_model: extract and inspect raw bytes of a single model entry
         if (argc >= 3 && std::string(argv[2]) == "dump_model") {
             int modelId = argc >= 4 ? std::stoi(argv[3]) : 0;
@@ -36,7 +118,11 @@ int main(int argc, char* argv[]) {
                 return 1;
             }
 
-            auto data = reader.readGzippedFile(1, modelId);
+            Buffer data = reader.readGzippedFile(1, modelId);
+            if (data.empty()) {
+                std::cerr << "Failed to read/decompress model " << modelId << "\n";
+                return 1;
+            }
             int size = (int)data.size();
 
             std::cout << "Model " << modelId << " — decompressed size: " << size << " bytes\n\n";
@@ -47,7 +133,8 @@ int main(int argc, char* argv[]) {
             for (int i = 0; i < dumpLen; i++) {
                 if (i % 16 == 0)
                     std::cout << std::hex << std::setw(4) << std::setfill('0') << i << ":  ";
-                std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)data[i] << " ";
+                std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)data.peekByte() << " ";
+                data.readByte(); // advance
                 if (i % 16 == 15) std::cout << "\n";
             }
             std::cout << std::dec << "\n";
@@ -58,23 +145,24 @@ int main(int argc, char* argv[]) {
             }
 
             // parse footer: last 18 bytes
-            const uint8_t* f = data.data() + size - 18;
-            auto ru16 = [](const uint8_t* p, int off) -> uint16_t {
-                return (uint16_t)((p[off] << 8) | p[off + 1]);
+            Buffer footerBuf(data.slice(size - 18, size));
+            
+            auto readU16 = [&]() -> uint16_t {
+                return footerBuf.readUShort();
             };
 
-            uint16_t vertexCount          = ru16(f,  0);
-            uint16_t triangleCount        = ru16(f,  2);
-            uint8_t  texTriangleCount     = f[4];
-            uint8_t  hasFaceRenderTypes   = f[5];
-            uint8_t  priorityFlag         = f[6];
-            uint8_t  hasFaceAlpha         = f[7];
-            uint8_t  hasFaceSkins         = f[8];
-            uint8_t  hasVertexSkins       = f[9];
-            uint16_t vertexXLen           = ru16(f, 10);
-            uint16_t vertexYLen           = ru16(f, 12);
-            uint16_t vertexZLen           = ru16(f, 14);
-            uint16_t triIndexLen          = ru16(f, 16);
+            uint16_t vertexCount          = readU16();
+            uint16_t triangleCount        = readU16();
+            uint8_t  texTriangleCount     = footerBuf.readByte();
+            uint8_t  hasFaceRenderTypes   = footerBuf.readByte();
+            uint8_t  priorityFlag         = footerBuf.readByte();
+            uint8_t  hasFaceAlpha         = footerBuf.readByte();
+            uint8_t  hasFaceSkins         = footerBuf.readByte();
+            uint8_t  hasVertexSkins       = footerBuf.readByte();
+            uint16_t vertexXLen           = readU16();
+            uint16_t vertexYLen           = readU16();
+            uint16_t vertexZLen           = readU16();
+            uint16_t triIndexLen          = readU16();
 
             std::cout << "--- Footer (last 18 bytes) ---\n";
             std::cout << "  vertexCount:             " << vertexCount          << "\n";
@@ -112,7 +200,8 @@ int main(int argc, char* argv[]) {
 
             // parse and print decoded summary
             std::cout << "\n--- Parsed ModelDef ---\n";
-            ModelDef def = ModelDef::parse(modelId, data);
+            Buffer modelBuf(data.slice(0, data.size()));
+            ModelDef def = ModelDef::parse(modelId, modelBuf);
             std::cout << "  vertices:  " << def.vertexX.size() << "\n";
             std::cout << "  triangles: " << def.triA.size()    << "\n";
             std::cout << "  texTris:   " << def.texP.size()    << "\n";
@@ -148,12 +237,16 @@ int main(int argc, char* argv[]) {
             return 0;
         }
 
-        Archive defsArchive = reader.readArchive(0, 2);
+        auto defsArchivePtr = reader.readArchive(0, 2);
+        if (!defsArchivePtr) { std::cerr << "Failed to read definitions archive\n"; return 1; }
+        Archive& defsArchive = *defsArchivePtr;
         DefinitionsLoader loader;
         loader.loadLocs(defsArchive);
         loader.loadFlos(defsArchive);
 
-        Archive vArchive = reader.readArchive(0, 5);
+        auto vArchivePtr = reader.readArchive(0, 5);
+        if (!vArchivePtr) { std::cerr << "Failed to read version archive\n"; return 1; }
+        Archive& vArchive = *vArchivePtr;
         VersionList vList = VersionList::parse(vArchive);
         int regionId = 12850;
         if (argc >= 3)

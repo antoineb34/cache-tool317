@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <vector>
+#include "Buffer.h"
 
 struct ModelDef {
     int id = -1;
@@ -34,5 +35,6 @@ struct ModelDef {
     bool isFaceTransparent(int i)  const { return !triRenderType.empty() && (triRenderType[i] & 1); }
     int  faceTexTriIndex(int i)    const { return !triRenderType.empty() ? (triRenderType[i] >> 2) : 0; }
 
-    static ModelDef parse(int id, const std::vector<uint8_t>& data);
+    // Parse from a Buffer (reads and advances the Buffer position)
+    static ModelDef parse(int id, Buffer& buf);
 };

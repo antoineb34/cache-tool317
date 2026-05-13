@@ -10,16 +10,13 @@ MapRegion MapRegion::load(CacheReader& reader, const VersionList& versionList, i
     if (entry == nullptr)
         throw std::runtime_error("Map region not found in map_index: " + std::to_string(regionId));
 
-    std::vector<uint8_t> terrainData = reader.readGzippedFile(4, entry->terrainFileId);
+    Buffer terrainData = reader.readGzippedFile(4, entry->terrainFileId);
     if (terrainData.empty())
         throw std::runtime_error("Failed to read/decompress terrain map file: " + std::to_string(entry->terrainFileId));
 
-    std::vector<uint8_t> objectData = reader.readGzippedFile(4, entry->objectFileId);
+    Buffer objectData = reader.readGzippedFile(4, entry->objectFileId);
     if (objectData.empty())
         throw std::runtime_error("Failed to read/decompress object map file: " + std::to_string(entry->objectFileId));
-
-    Buffer terrainBuffer(terrainData);
-    Buffer objectBuffer(objectData);
 
     MapRegion region;
     region.regionId_ = regionId;
@@ -27,8 +24,8 @@ MapRegion MapRegion::load(CacheReader& reader, const VersionList& versionList, i
     region.objectFileId_ = entry->objectFileId;
     region.terrainDataSize_ = terrainData.size();
     region.objectDataSize_ = objectData.size();
-    region.terrain_ = MapTerrain::parse(terrainBuffer, regionId);
-    region.objects_ = MapObjects::parse(objectBuffer);
+    region.terrain_ = MapTerrain::parse(terrainData, regionId);
+    region.objects_ = MapObjects::parse(objectData);
     return region;
 }
 
