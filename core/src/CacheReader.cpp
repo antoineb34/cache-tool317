@@ -349,6 +349,13 @@ std::shared_ptr<Archive> CacheReader::readArchive(int archiveId, int fileId) {
     // Now read each sub-file's data
     Archive archive;
     for (const auto& entry : entries) {
+        // Validate entry payload does not exceed archive data bounds
+        int remaining = static_cast<int>(data.size()) - dataBuf.position();
+        if (entry.compressedSize > static_cast<uint32_t>(remaining)) {
+            throw std::runtime_error("CacheReader: archive entry payload exceeds archive bounds (entry compressedSize=" +
+                                   std::to_string(entry.compressedSize) + ", remaining=" + std::to_string(remaining) + ")");
+        }
+
         std::vector<uint8_t> fileData;
         if (!wholeCompressed && entry.decompressedSize != entry.compressedSize) {
             // Sub-file is individually compressed
