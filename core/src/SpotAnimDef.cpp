@@ -1,14 +1,6 @@
 #include "SpotAnimDef.h"
-
-#include <stdexcept>
-#include <string>
-
-static std::runtime_error unknownOpcodeError(int opcode, int position) {
-    return std::runtime_error(
-        "SpotAnimDef: unknown opcode " + std::to_string(opcode) +
-        " at buffer pos " + std::to_string(position)
-    );
-}
+#include "Buffer.h"
+#include "Utils.h"
 
 SpotAnimDef SpotAnimDef::parse(Buffer& buf) {
     SpotAnimDef def;
@@ -56,7 +48,7 @@ SpotAnimDef SpotAnimDef::parse(Buffer& buf) {
                 break;
 
             default:
-                throw unknownOpcodeError(opcode, buf.position());
+                throw unknownOpcodeError("SpotAnimDef", opcode, buf.position());
         }
     }
 

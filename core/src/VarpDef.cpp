@@ -1,14 +1,6 @@
 #include "VarpDef.h"
-
-#include <stdexcept>
-#include <string>
-
-static std::runtime_error unknownOpcodeError(int opcode, int position) {
-    return std::runtime_error(
-        "VarpDef: unknown opcode " + std::to_string(opcode) +
-        " at buffer pos " + std::to_string(position)
-    );
-}
+#include "Buffer.h"
+#include "Utils.h"
 
 VarpDef VarpDef::parse(Buffer& buf) {
     VarpDef def;
@@ -24,7 +16,7 @@ VarpDef VarpDef::parse(Buffer& buf) {
                 break;
 
             default:
-                throw unknownOpcodeError(opcode, buf.position());
+                throw unknownOpcodeError("VarpDef", opcode, buf.position());
         }
     }
 

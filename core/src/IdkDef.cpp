@@ -1,14 +1,6 @@
 #include "IdkDef.h"
-
-#include <stdexcept>
-#include <string>
-
-static std::runtime_error unknownOpcodeError(int opcode, int position) {
-    return std::runtime_error(
-        "IdkDef: unknown opcode " + std::to_string(opcode) +
-        " at buffer pos " + std::to_string(position)
-    );
-}
+#include "Buffer.h"
+#include "Utils.h"
 
 IdkDef IdkDef::parse(Buffer& buf) {
     IdkDef def;
@@ -50,7 +42,7 @@ IdkDef IdkDef::parse(Buffer& buf) {
                 break;
 
             default:
-                throw unknownOpcodeError(opcode, buf.position());
+                throw unknownOpcodeError("IdkDef", opcode, buf.position());
         }
     }
 

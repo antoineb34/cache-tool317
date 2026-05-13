@@ -1,25 +1,15 @@
 #include "MesAnimDef.h"
+#include "Buffer.h"
+#include "Utils.h"
 
-#include <stdexcept>
-#include <string>
-
-static std::runtime_error unknownOpcodeError(int opcode, int position) {
-    return std::runtime_error(
-        "MesAnimDef: unknown opcode " + std::to_string(opcode) +
-        " at buffer pos " + std::to_string(position)
-    );
-}
-
+// TODO: MesAnimDef parse is a stub — format not yet documented.
+// Currently throws on any non-zero opcode.
 MesAnimDef MesAnimDef::parse(Buffer& buf) {
     MesAnimDef def;
-
     while (true) {
         int opcode = buf.readByte();
-
         if (opcode == 0) break;
-
-        throw unknownOpcodeError(opcode, buf.position());
+        throw unknownOpcodeError("MesAnimDef", opcode, buf.position());
     }
-
     return def;
 }
