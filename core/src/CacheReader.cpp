@@ -3,6 +3,12 @@
 
 #include <zlib.h>
 #include <bzlib.h>
+
+struct ArchiveEntry {
+    uint32_t nameHash;
+    uint32_t decompressedSize;
+    uint32_t compressedSize;
+};
 #include <array>
 #include <iostream>
 #include <cstring>

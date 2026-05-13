@@ -16,7 +16,11 @@
 
 #include "Archive.h"
 #include "Buffer.h"
-#include "CacheDefinitions.h"
+
+struct IndexEntry {
+    uint32_t size;        // total size of the file in bytes (3-byte value in cache)
+    uint32_t firstSector; // first sector in the .dat file where this file's data begins (3-byte value in cache)
+};
 
 // CacheReader reads the RS317 cache format and provides clean access to data.
 // It hides the ugly details (sectors, indices, BZIP2) and returns:
