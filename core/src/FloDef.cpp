@@ -1,14 +1,6 @@
 #include "FloDef.h"
-
-#include <stdexcept>
-#include <string>
-
-static std::runtime_error unknownOpcodeError(int opcode, int position) {
-    return std::runtime_error(
-        "FloDef: unknown opcode " + std::to_string(opcode) +
-        " at buffer pos " + std::to_string(position)
-    );
-}
+#include "Buffer.h"
+#include "Utils.h"
 
 FloDef FloDef::parse(Buffer& buf) {
     FloDef def;
@@ -44,7 +36,7 @@ FloDef FloDef::parse(Buffer& buf) {
                 break;
 
             default:
-                throw unknownOpcodeError(opcode, buf.position());
+                throw unknownOpcodeError("FloDef", opcode, buf.position());
         }
     }
 

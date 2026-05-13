@@ -1,14 +1,6 @@
 #include "LocDef.h"
-
-#include <stdexcept>
-#include <string>
-
-static std::runtime_error unknownOpcodeError(const char* parserName, int opcode, int position) {
-    return std::runtime_error(
-        std::string(parserName) + ": unknown opcode " + std::to_string(opcode) +
-        " at buffer pos " + std::to_string(position)
-    );
-}
+#include "Buffer.h"
+#include "Utils.h"
 
 LocDef LocDef::parse(Buffer& buf) {
     LocDef def;

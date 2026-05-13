@@ -1,14 +1,6 @@
 #include "SeqDef.h"
-
-#include <stdexcept>
-#include <string>
-
-static std::runtime_error unknownOpcodeError(int opcode, int position) {
-    return std::runtime_error(
-        "SeqDef: unknown opcode " + std::to_string(opcode) +
-        " at buffer pos " + std::to_string(position)
-    );
-}
+#include "Buffer.h"
+#include "Utils.h"
 
 SeqDef SeqDef::parse(Buffer& buf) {
     SeqDef def;
@@ -80,7 +72,7 @@ SeqDef SeqDef::parse(Buffer& buf) {
                 break;
 
             default:
-                throw unknownOpcodeError(opcode, buf.position());
+                throw unknownOpcodeError("SeqDef", opcode, buf.position());
         }
     }
 

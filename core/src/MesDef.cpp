@@ -1,25 +1,15 @@
 #include "MesDef.h"
+#include "Buffer.h"
+#include "Utils.h"
 
-#include <stdexcept>
-#include <string>
-
-static std::runtime_error unknownOpcodeError(int opcode, int position) {
-    return std::runtime_error(
-        "MesDef: unknown opcode " + std::to_string(opcode) +
-        " at buffer pos " + std::to_string(position)
-    );
-}
-
+// TODO: MesDef parse is a stub — format not yet documented.
+// Currently throws on any non-zero opcode.
 MesDef MesDef::parse(Buffer& buf) {
     MesDef def;
-
     while (true) {
         int opcode = buf.readByte();
-
         if (opcode == 0) break;
-
-        throw unknownOpcodeError(opcode, buf.position());
+        throw unknownOpcodeError("MesDef", opcode, buf.position());
     }
-
     return def;
 }
