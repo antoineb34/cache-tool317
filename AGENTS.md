@@ -1,133 +1,268 @@
-# cache-tool317 — Agent Instructions
+# AGENTS.md — cache-tool317
 
-## Current Work
+## Role
 
-**Done:**
-- All cache I/O: `Buffer` (optimized, move semantics), `CacheReader` (clean API), `Archive`
-- `CacheReader` API:
-  - `readFile()` — raw file as `Buffer`
-  - `readGzippedFile()` — gzip decompress to `Buffer`
-  - `readArchive()` — parse JAG sub-archive, returns `Archive` with `Buffer` files (now returns `shared_ptr<Archive>` for caching)
-- **Cache reader performance optimizations:**
-  - Memory-mapped I/O for `.dat` file (mmap) — eliminates `read()` syscalls
-  - Memory-mapped I/O for `.idx` index files (mmap) — eliminates `seekg()`/`read()` syscalls
-  - Archive caching — avoids repeated BZip2 decompression (5-9x faster repeated reads)
-  - Sector batch reading — reads all sectors in one operation
-  - Sub-microsecond `hasFile()` and `getFileCount()` (16-59x faster with mmap)
-- All definition parsers updated to accept `Buffer&` (zero-copy parsing):
-  - `ModelDef::parse(int id, Buffer& buf)`
-  - `TextureDef::parse(int id, Buffer& data, Buffer& paletteData)`
-  - All other def parsers already use `Buffer&`
-- Map parsing: `MapRegion`, `MapTerrain`, `MapObjects`
-- 2D map renderer: `RegionRenderer2D`
-- **Benchmark suite:** `BufferBenchmark.cpp` and `CacheBenchmark.cpp` for performance testing
+You are a coding assistant helping build a C++20 RuneScape 317 cache tool and client.
 
-**In progress:**
-- Model renderer working: HSL face colors, depth test, backface culling, textured-face detection
-- **Texture decoding implemented**: `TextureDef`, `TextureLoader` updated for `Buffer&`
-- Textured faces now render with actual textures (simplified UV mapping)
-- Unused ModelDef fields (triAlpha, triPriority, triSkin, vertexSkin, texP/Q/R) are parsed and ready — intentionally deferred until textures/animations are tackled
-- **Cache reader optimizations complete** — mmap I/O, archive caching, sub-microsecond file checks
-- Next: proper UV mapping using texP/Q/R, then orbit camera
+The user is the project lead.
+You are the implementer.
 
-**Up next:**
-1. **Proper texture UV mapping** — use `texP/Q/R` vertices for correct texture coordinates on faces
-2. Orbit camera — mouse controls to rotate/zoom instead of auto-spin
-3. 3D map renderer (objects placed on terrain)
-4. Texture animation support (if applicable)
-
-**End goal:**
-Full RS317 client + integrated cache editor — modify any game file (items, map, models, etc.) and write it back to the cache.
+Do not make architecture decisions independently.
+Explain changes before implementing them.
 
 ---
 
-## What This Is
+## Prime Directive
 
-A **RuneScape 317 cache tool** written in **C++20** with **CMake**.
+Work in small, reviewable steps.
 
-The end goal is a fully customizable cache tool (read, write, create assets) plus a game client. Both share the `core` library.
+Before editing code:
+1. Inspect the relevant files.
+2. State the current milestone.
+3. List exactly which files you intend to touch.
+4. Explain the smallest change needed.
+5. Wait for approval unless the user explicitly requested implementation.
 
-**GitHub:** https://github.com/antoineb34/cache-tool317
+After editing code:
+1. Summarize exactly what changed.
+2. Explain how to build and run the project.
+3. Report errors honestly.
+4. Stop and wait for the next instruction.
 
-## Build
+Never continue into future milestones automatically.
 
-```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-cmake --build build
-```
+---
 
-For benchmarks (optional):
-```bash
-cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release -DBUILD_BENCHMARKS=ON
-cmake --build build-release
-# Run benchmarks:
-./build-release/bin/buffer_benchmark
-./build-release/bin/cache_benchmark <path-to-cache-folder>
-```
+## Current Milestone
 
-Binaries:
-- `build/bin/tool` — CLI cache inspection tool
-- `build/bin/client` — windowed game client (currently empty — model renderer being built)
-- `build/bin/buffer_benchmark` — Buffer performance benchmark (with BUILD_BENCHMARKS=ON)
-- `build/bin/cache_benchmark` — CacheReader performance benchmark (with BUILD_BENCHMARKS=ON)
+Build the SDL3 + OpenGL client foundation.
 
-## Directory Map
+Current active task:
+- Create an SDL3 window
+- Create an OpenGL context
+- Clear the screen
+- Swap buffers in a loop
+- Draw one colored triangle
 
-```
-cache-tool/
-├── core/               ← shared static library (used by tool and client)
-│   ├── include/        ← headers (.h)
-│   └── src/            ← implementation (.cpp)
-├── tool/               ← CLI cache inspection tool
-│   └── src/main.cpp
-├── client/             ← windowed game client
-│   └── src/main.cpp
-├── docs/               ← reference documentation (cache formats, algorithms, etc.)
-├── third_party/        ← external libraries (empty, use system packages)
-├── cache/              ← the actual 317 cache files (gitignored)
-└── build/              ← cmake build output (gitignored)
-```
+Do not move beyond this milestone until explicitly asked.
 
-## Collaboration Rules
+---
 
-- **The user is the main brain.** They decide what to build, what to name things, and the direction.
-- **The agent executes.** Write code based on the user's direction. Don't design independently.
-- **Think together before writing.** Present a plan, let the user confirm or redirect, then write.
-- **Do one thing at a time.** Don't write multiple systems at once.
-- **Always build and verify after every change.**
-- **Keep docs in sync automatically.** Whenever the project direction, current work, or agent behavior rules change, update `Current Work` in this file and any relevant `docs/` files. The user should never have to update docs manually.
-- **Use feature branches.** Never push significant changes directly to `main`. Create a branch (`feature/`, `fix/`, `refactor/` prefix), work on it, then merge when done. `main` stays stable.
+## Forbidden Unless Explicitly Requested
 
-## Coding Conventions
+Do not add or modify:
+- networking
+- login systems
+- ECS architecture
+- scripting systems
+- UI systems
+- inventory/chat/minimap
+- map renderer
+- model renderer
+- animation systems
+- texture UV mapping
+- orbit camera
+- cache writing
+- editor systems
+- audio systems
+- speculative abstractions
+- large refactors
 
-- **C++20**, **GCC**, **CMake 3.20+**
-- Each major type gets its own `.h` + `.cpp` pair
-- Use `Buffer` for ALL sequential byte reading — never raw `data[offset]` arithmetic inline
-- Unknown opcodes in parsers throw `std::runtime_error` (strict parsing)
-- Public API is clean and minimal — implementation details go `private`
-- Include guards: `#pragma once`
-- No namespaces — flat global structs and functions (matches existing style)
-- Error handling: throw `std::runtime_error` with descriptive messages
+Do not generate many files at once.
+
+Do not rewrite stable code unless explicitly requested.
+
+---
+
+## Project Structure
+
+- `core/` = cache reading and parsing library
+- `tool/` = CLI inspection tool
+- `client/` = SDL3/OpenGL game client
+- `docs/` = reference documentation only
+
+Use `core/` from `client/` only when necessary.
+
+For the current milestone, prefer touching only:
+- `client/`
+- CMake files if required
+
+---
 
 ## Sacred Areas
 
-- **`core/` cache parsing code** — user fully understands it. Ask before modifying.
-- **`Buffer.h/cpp`** — the universal byte reader. Used everywhere.
-- **`CacheReader.h/cpp`** — the cache I/O layer.
+Ask before modifying:
+- `Buffer.h`
+- `Buffer.cpp`
+- `CacheReader.h`
+- `CacheReader.cpp`
+- existing parser files
 
-## External Dependencies
+These systems are considered stable.
 
-- `BZip2` — Jagex BZIP2 decompression
-- `ZLIB` — GZIP decompression
-- `SDL3` — window, input, events
-- `OpenGL` — rendering (client only)
+---
 
-## Where to Find Things
+## Build Commands
 
-| Need | Look In |
-|------|---------|
-| Cache format specs | `docs/cache-format.md` |
-| Build / architecture | `docs/architecture.md` |
-| Coding conventions (detailed) | `docs/conventions.md` |
-| Algorithm reference (graphics, lighting, palette) | `docs/algorithms.md` |
-| How to add a definition parser | `docs/adding-parsers.md` |
+Debug build:
+
+    cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+    cmake --build build
+
+Run client:
+
+    ./build/bin/client
+
+Run tool:
+
+    ./build/bin/tool ./cache
+
+---
+
+## Branch Rules
+
+`main` must remain stable and buildable.
+
+For significant work:
+- create a feature branch first
+- work only inside that branch
+- commit incrementally
+- merge into `main` only after verification
+
+Branch naming:
+- `feature/...`
+- `fix/...`
+- `refactor/...`
+
+Examples:
+- `feature/opengl-bootstrap`
+- `feature/tile-rendering`
+- `fix/model-uv-bug`
+
+Do not:
+- commit unfinished systems directly to `main`
+- force push
+- rewrite branch history
+- delete branches without approval
+
+---
+
+## Git Rules
+
+Allowed without asking:
+- `git status`
+- `git diff`
+- `git log --oneline -5`
+
+Allowed after completing a verified change:
+- create a local commit with a clear message
+
+Forbidden unless explicitly requested:
+- `git push`
+- force push
+- deleting branches
+- rebasing public branches
+- `git reset --hard`
+
+Before committing:
+1. Show `git status`
+2. Summarize changed files
+3. Confirm the project builds
+4. Use a focused commit message
+
+Never commit broken builds unless explicitly requested.
+
+---
+
+## Coding Style
+
+- C++20
+- GCC
+- CMake 3.20+
+- One major type per `.h` + `.cpp`
+- `#pragma once`
+- No namespaces
+- Struct/class names: `PascalCase`
+- Functions/variables: `camelCase`
+- Private members end with `_`
+- Prefer readability over clever abstractions
+- Throw `std::runtime_error` for real errors
+
+---
+
+## Buffer Rules
+
+All sequential byte reading must go through `Buffer`.
+
+Do NOT perform manual byte parsing inline with raw pointer arithmetic unless explicitly requested.
+
+---
+
+## Documentation Rules
+
+`docs/` files are reference material only.
+
+They do NOT grant permission to implement those systems automatically.
+
+Consult docs only when relevant to the current task.
+
+Documentation may be updated only when:
+- the user requests it
+- or code changes make the docs inaccurate
+
+Allowed doc updates:
+- build command changes
+- architecture changes
+- parser behavior changes
+- new verified algorithm notes
+- corrected mistakes
+
+Forbidden doc updates:
+- speculative roadmap items
+- promises about future work
+- documenting systems that do not exist yet
+- large rewrites for style only
+
+Keep documentation updates small and directly related to the code change.
+
+---
+
+## Agent Workflow Rules
+
+Preferred workflow:
+1. Small plan
+2. Small code change
+3. Build/test
+4. Explain result
+5. Stop
+
+Avoid:
+- “while I’m here” changes
+- future-proofing
+- unnecessary abstractions
+- generating many systems at once
+- implementing roadmap ideas automatically
+
+If unsure:
+ask first.
+
+If the user says:
+“do step 1 only”
+
+then do only step 1.
+
+---
+
+## Documentation Index
+
+Reference documents:
+- `docs/architecture.md`
+- `docs/cache-format.md`
+- `docs/algorithms.md`
+- `docs/conventions.md`
+- `docs/adding-parsers.md`
+- `docs/history.md`
+
+These documents are reference material only.
+
+Do not treat them as implementation instructions unless the current task requires them.

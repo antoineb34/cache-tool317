@@ -2,7 +2,6 @@
 
 #include <filesystem>
 #include <fstream>
-#include <vector>
 #include <map>
 #include <memory>
 #include <utility>
@@ -22,6 +21,12 @@ struct IndexEntry {
     uint32_t firstSector; // first sector in the .dat file where this file's data begins (3-byte value in cache)
 };
 
+struct ArchiveEntry {
+    uint32_t nameHash;
+    uint32_t decompressedSize;
+    uint32_t compressedSize;
+};
+
 // CacheReader reads the RS317 cache format and provides clean access to data.
 // It hides the ugly details (sectors, indices, BZIP2) and returns:
 //   - Buffer (owns data) for raw files
@@ -36,31 +41,12 @@ class CacheReader {
 public:
     // Opens the cache: main_file_cache.dat + idx0 through idx4
     bool open(const std::filesystem::path& cachePath);
-    
-    // Destructor: clean up mmap resources
-    ~CacheReader() {
-        // Clean up .dat mmap
-        if (useMmap && datMmap != nullptr && datMmap != MAP_FAILED) {
-            munmap(datMmap, datSize);
-            datMmap = nullptr;
-        }
-        if (datFd >= 0) {
-            close(datFd);
-            datFd = -1;
-        }
-        
-        // Clean up .idx mmaps
-        for (int i = 0; i < 5; i++) {
-            if (idxMmap[i].data != nullptr && idxMmap[i].data != MAP_FAILED) {
-                munmap(idxMmap[i].data, idxMmap[i].size);
-                idxMmap[i].data = nullptr;
-            }
-            if (idxMmap[i].fd >= 0) {
-                close(idxMmap[i].fd);
-                idxMmap[i].fd = -1;
-            }
-        }
-    }
+
+    // Destructor: clean up resources
+    ~CacheReader();
+
+    // Closes all open handles (mmap, ifstream)
+    void close();
 
     // Reads a raw file from the cache as a Buffer (owns its data).
     // archiveId: 0=definitions, 1=models, 2=animations, 3=midis, 4=maps
@@ -87,7 +73,7 @@ private:
     int               datFd = -1;
     uint8_t*          datMmap = nullptr;
     size_t            datSize = 0;
-    
+
     // Memory-mapped .idx files (instead of std::ifstream)
     struct MmapIdx {
         int      fd = -1;
@@ -96,13 +82,13 @@ private:
     };
     mutable std::array<MmapIdx, 5> idxMmap;
     bool              useIdxMmap = false;
-    
+
     // Fallback std::ifstream if mmap fails
     std::ifstream     datFallback;
     bool              useMmap = false;
-    
+
     mutable std::array<std::ifstream, 5> idx;
-    
+
     // Cache for parsed archives to avoid repeated decompression
     std::map<std::pair<int, int>, std::shared_ptr<Archive>> archiveCache;
 };

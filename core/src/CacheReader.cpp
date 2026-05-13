@@ -4,11 +4,6 @@
 #include <zlib.h>
 #include <bzlib.h>
 
-struct ArchiveEntry {
-    uint32_t nameHash;
-    uint32_t decompressedSize;
-    uint32_t compressedSize;
-};
 #include <array>
 #include <iostream>
 #include <cstring>
@@ -53,7 +48,7 @@ static std::vector<uint8_t> decompressGzip(const uint8_t* src, uint32_t srcLen) 
         strm.next_out = buf;
         strm.avail_out = sizeof(buf);
         ret = inflate(&strm, Z_NO_FLUSH);
-        
+
         size_t have = sizeof(buf) - strm.avail_out;
         if (have > 0) {
             out.insert(out.end(), buf, buf + have);
@@ -64,15 +59,62 @@ static std::vector<uint8_t> decompressGzip(const uint8_t* src, uint32_t srcLen) 
     return (ret == Z_STREAM_END) ? out : std::vector<uint8_t>{};
 }
 
+CacheReader::~CacheReader() {
+    close();
+}
+
+void CacheReader::close() {
+    // Clean up .dat mmap
+    if (useMmap && datMmap != nullptr && datMmap != MAP_FAILED) {
+        munmap(datMmap, datSize);
+        datMmap = nullptr;
+    }
+    if (datFd >= 0) {
+        ::close(datFd);
+        datFd = -1;
+    }
+
+    // Clean up .idx mmaps
+    for (int i = 0; i < 5; i++) {
+        if (idxMmap[i].data != nullptr && idxMmap[i].data != MAP_FAILED) {
+            munmap(idxMmap[i].data, idxMmap[i].size);
+            idxMmap[i].data = nullptr;
+        }
+        if (idxMmap[i].fd >= 0) {
+            ::close(idxMmap[i].fd);
+            idxMmap[i].fd = -1;
+        }
+    }
+
+    // Clean up .idx ifstreams
+    for (int i = 0; i < 5; i++) {
+        if (idx[i].is_open()) {
+            idx[i].close();
+        }
+    }
+
+    // Close dat fallback
+    if (datFallback.is_open()) {
+        datFallback.close();
+    }
+
+    useMmap = false;
+    useIdxMmap = false;
+    datSize = 0;
+}
+
 bool CacheReader::open(const std::filesystem::path& cachePath) {
+    // Ensure clean state
+    close();
+
     auto datPath = cachePath / "main_file_cache.dat";
-    
+
     // Try to memory-map the .dat file
     useMmap = false;
     datFd = -1;
     datMmap = nullptr;
     datSize = 0;
-    
+
 #ifdef __linux__
     datFd = ::open(datPath.c_str(), O_RDONLY);
     if (datFd >= 0) {
@@ -85,14 +127,14 @@ bool CacheReader::open(const std::filesystem::path& cachePath) {
                 if (datMmap != MAP_FAILED) {
                     useMmap = true;
                 } else {
-                    close(datFd);
+                    ::close(datFd);
                     datFd = -1;
                 }
             }
         }
     }
 #endif
-    
+
     // Fallback to std::ifstream if mmap failed
     if (!useMmap) {
         datFallback.open(datPath, std::ios::binary);
@@ -107,7 +149,7 @@ bool CacheReader::open(const std::filesystem::path& cachePath) {
     for (int i = 0; i < 5; i++) {
         std::string idxName = "main_file_cache.idx" + std::to_string(i);
         auto idxPath = cachePath / idxName;
-        
+
         int fd = ::open(idxPath.c_str(), O_RDONLY);
         if (fd >= 0) {
             struct stat st;
@@ -121,9 +163,9 @@ bool CacheReader::open(const std::filesystem::path& cachePath) {
                     continue;  // Success, move to next index
                 }
             }
-            close(fd);
+            ::close(fd);
         }
-        
+
         // Fallback: use std::ifstream
         idx[i].open(idxPath, std::ios::binary);
         if (!idx[i].is_open()) {
@@ -136,6 +178,8 @@ bool CacheReader::open(const std::filesystem::path& cachePath) {
 }
 
 IndexEntry CacheReader::readIndex(int archiveId, int fileId) const {
+    if (archiveId < 0 || archiveId > 4) return {};
+
     if (useIdxMmap && idxMmap[archiveId].data != nullptr) {
         // Memory-mapped: read directly from mmap'd buffer
         size_t offset = fileId * 6;
@@ -254,10 +298,10 @@ Buffer CacheReader::readFile(int archiveId, int fileId) {
 Buffer CacheReader::readGzippedFile(int archiveId, int fileId) {
     Buffer rawBuf = readFile(archiveId, fileId);
     if (rawBuf.empty()) return Buffer(std::vector<uint8_t>{});
-    
+
     std::vector<uint8_t> decompressed = decompressGzip(rawBuf.data(), static_cast<uint32_t>(rawBuf.size()));
     if (decompressed.empty()) return Buffer(std::vector<uint8_t>{});
-    
+
     return Buffer(std::move(decompressed));
 }
 
@@ -268,7 +312,7 @@ std::shared_ptr<Archive> CacheReader::readArchive(int archiveId, int fileId) {
     if (it != archiveCache.end()) {
         return it->second;  // Return cached archive
     }
-    
+
     Buffer rawBuf = readFile(archiveId, fileId);
     if (rawBuf.size() < 6) return nullptr;
 
@@ -321,13 +365,13 @@ std::shared_ptr<Archive> CacheReader::readArchive(int archiveId, int fileId) {
     // Store in cache before returning
     auto archivePtr = std::make_shared<Archive>(std::move(archive));
     archiveCache[key] = archivePtr;
-    
+
     return archivePtr;
 }
 
 int CacheReader::getFileCount(int archiveId) const {
     if (archiveId < 0 || archiveId >= 5) return 0;
-    
+
     if (useIdxMmap && idxMmap[archiveId].data != nullptr) {
         // Memory-mapped: calculate from mmap'd size
         return static_cast<int>(idxMmap[archiveId].size / 6);
@@ -341,7 +385,7 @@ int CacheReader::getFileCount(int archiveId) const {
 
 bool CacheReader::hasFile(int archiveId, int fileId) const {
     if (archiveId < 0 || archiveId >= 5) return false;
-    
+
     if (useIdxMmap && idxMmap[archiveId].data != nullptr) {
         // Memory-mapped: read directly from mmap'd buffer
         size_t offset = fileId * 6;

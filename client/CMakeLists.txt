@@ -1,9 +1,24 @@
+find_package(SDL3 REQUIRED CONFIG)
+
 add_executable(client
     src/main.cpp
-    src/Mat4.cpp
+    src/Math.h
+    src/Camera.h
+    src/Camera.cpp
+    src/Shader.h
     src/Shader.cpp
+    src/TextureManager.h
+    src/TextureManager.cpp
+    src/ModelRenderer.h
     src/ModelRenderer.cpp
-    src/TextureLoader.cpp
+    src/WorldRenderer.h
+    src/WorldRenderer.cpp
 )
-target_include_directories(client PRIVATE include)
-target_link_libraries(client PRIVATE core SDL3::SDL3 OpenGL::GL)
+
+target_compile_definitions(client PRIVATE GL_GLEXT_PROTOTYPES)
+
+target_link_libraries(client
+    core
+    SDL3::SDL3
+    OpenGL::GL
+)
