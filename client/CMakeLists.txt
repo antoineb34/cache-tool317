@@ -2,7 +2,11 @@ find_package(SDL3 REQUIRED CONFIG)
 
 add_executable(client
     src/main.cpp
+    src/App.cpp
+    src/DebugModelViewer.cpp
 )
+
+target_include_directories(client PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 target_compile_definitions(client PRIVATE GL_GLEXT_PROTOTYPES)
 
