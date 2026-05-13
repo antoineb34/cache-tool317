@@ -1,34 +1,32 @@
 #include "App.h"
-#include "DebugModelViewer.h"
 
 #include <iostream>
-#include <filesystem>
 
-App::App() = default;
-App::~App() { shutdown(); }
+App::App()
+    : window_(nullptr)
+    , glContext_(nullptr)
+    , running_(false)
+{
+}
 
-bool App::init(const char* title, int w, int h) {
-    width_ = w;
-    height_ = h;
+App::~App() {
+    shutdown();
+}
 
+bool App::init() {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         std::cerr << "SDL_Init failed: " << SDL_GetError() << std::endl;
         return false;
     }
 
-    window_ = SDL_CreateWindow(title, w, h, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+    window_ = SDL_CreateWindow("RS317 Cache Tool", 1280, 720, SDL_WINDOW_OPENGL);
     if (!window_) {
         std::cerr << "Window failed: " << SDL_GetError() << std::endl;
         return false;
     }
 
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-
-    if (!SDL_GL_CreateContext(window_)) {
+    glContext_ = SDL_GL_CreateContext(window_);
+    if (!glContext_) {
         std::cerr << "GL context failed: " << SDL_GetError() << std::endl;
         return false;
     }
@@ -40,72 +38,10 @@ bool App::init(const char* title, int w, int h) {
         return false;
     }
 
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-    glFrontFace(GL_CCW);
+    glViewport(0, 0, 1280, 720);
 
+    running_ = true;
     return true;
-}
-
-void App::shutdown() {
-    delete viewer_;
-    viewer_ = nullptr;
-    if (window_) {
-        SDL_DestroyWindow(window_);
-        window_ = nullptr;
-    }
-    SDL_Quit();
-}
-
-void App::handleDebugKeys(SDL_Keycode key) {
-    switch (key) {
-    case SDLK_LEFT:
-        // Previous model
-        if (reader_) {
-            int prev = currentModelId_ - 1;
-            while (prev >= 0) {
-                if (reader_->hasFile(1, prev)) {
-                    currentModelId_ = prev;
-                    if (viewer_->reloadModel(*reader_, currentModelId_)) {
-                        std::cout << "--- Loaded model " << currentModelId_ << " ---" << std::endl;
-                    }
-                    break;
-                }
-                --prev;
-            }
-        }
-        break;
-    case SDLK_RIGHT:
-        // Next model
-        if (reader_) {
-            int next = currentModelId_ + 1;
-            int maxModels = 10000; // safety limit
-            while (next < maxModels) {
-                if (reader_->hasFile(1, next)) {
-                    currentModelId_ = next;
-                    if (viewer_->reloadModel(*reader_, currentModelId_)) {
-                        std::cout << "--- Loaded model " << currentModelId_ << " ---" << std::endl;
-                    }
-                    break;
-                }
-                ++next;
-            }
-        }
-        break;
-    case SDLK_R:
-        viewer_->resetView();
-        break;
-    case SDLK_W:
-        viewer_->toggleWireframe();
-        break;
-    case SDLK_C:
-        viewer_->toggleCulling();
-        break;
-    default:
-        break;
-    }
 }
 
 void App::handleEvents() {
@@ -118,13 +54,7 @@ void App::handleEvents() {
             case SDL_EVENT_KEY_DOWN:
                 if (e.key.key == SDLK_ESCAPE) {
                     running_ = false;
-                } else {
-                    handleDebugKeys(e.key.key);
                 }
-                break;
-            case SDL_EVENT_WINDOW_RESIZED:
-                width_ = e.window.data1;
-                height_ = e.window.data2;
                 break;
             default:
                 break;
@@ -132,69 +62,34 @@ void App::handleEvents() {
     }
 }
 
-int App::run(CacheReader& reader, int initialModelId) {
-    reader_ = &reader;
-    currentModelId_ = initialModelId;
+void App::render() {
+    glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    SDL_GL_SwapWindow(window_);
+}
 
-    // Create viewer and load model
-    viewer_ = new DebugModelViewer();
+void App::shutdown() {
+    if (glContext_) {
+        SDL_GL_DestroyContext(glContext_);
+        glContext_ = nullptr;
+    }
+    if (window_) {
+        SDL_DestroyWindow(window_);
+        window_ = nullptr;
+    }
+    SDL_Quit();
+}
 
-    if (!reader.hasFile(1, currentModelId_)) {
-        std::cerr << "Model " << currentModelId_ << " not found in archive 1" << std::endl;
+int App::run() {
+    if (!init()) {
         return 1;
     }
 
-    if (!viewer_->load(reader, currentModelId_)) {
-        std::cerr << "Failed to load model " << currentModelId_ << std::endl;
-        return 1;
-    }
-
-    if (!viewer_->initGL()) {
-        std::cerr << "Failed to init GL for model " << currentModelId_ << std::endl;
-        return 1;
-    }
-
-    // Log initial model info
-    std::cout << "--- Model Info ---" << std::endl;
-    std::cout << "  Model ID:          " << viewer_->loadedModelId() << std::endl;
-    std::cout << "  Vertices:          " << viewer_->vertexCount() << std::endl;
-    std::cout << "  Triangles:         " << viewer_->triangleCount() << std::endl;
-    std::cout << "  Textured triangles: " << viewer_->texturedFaceCount() << std::endl;
-    std::cout << "-------------------" << std::endl;
-
-    // Main loop
-    int frameCount = 0;
     while (running_) {
         handleEvents();
-
-        int w = width_, h = height_;
-        glViewport(0, 0, w, h);
-
-        glClearColor(0.08f, 0.08f, 0.12f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        viewer_->update();
-        viewer_->render(w, h);
-
-        // Dump first frame to PPM for headless verification
-        if (frameCount == 0) {
-            std::vector<unsigned char> pixels(w * h * 3);
-            glReadPixels(0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
-            std::ofstream ppm("screenshot.ppm", std::ios::binary);
-            ppm << "P6\n" << w << " " << h << "\n255\n";
-            // OpenGL reads bottom-up, flip vertically
-            for (int y = h - 1; y >= 0; y--) {
-                ppm.write((char*)&pixels[y * w * 3], w * 3);
-            }
-            ppm.close();
-            std::cout << "Wrote screenshot.ppm (" << w << "x" << h << ")" << std::endl;
-        }
-
-        SDL_GL_SwapWindow(window_);
-
-        frameCount++;
-        if (frameCount >= 30) running_ = false; // auto-exit after 30 frames
+        render();
     }
 
+    shutdown();
     return 0;
 }
