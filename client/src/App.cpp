@@ -48,6 +48,26 @@ bool App::init() {
         return false;
     }
 
+    // Hardcoded wireframe square — 4 line segments, 8 vertices
+    float squareVertices[] = {
+        -0.5f, -0.5f, 0.0f,
+         0.5f, -0.5f, 0.0f,
+
+         0.5f, -0.5f, 0.0f,
+         0.5f,  0.5f, 0.0f,
+
+         0.5f,  0.5f, 0.0f,
+        -0.5f,  0.5f, 0.0f,
+
+        -0.5f,  0.5f, 0.0f,
+        -0.5f, -0.5f, 0.0f
+    };
+
+    if (!renderer_->uploadLines(squareVertices, 24)) {
+        std::cerr << "Failed to upload wireframe square" << std::endl;
+        return false;
+    }
+
     running_ = true;
     return true;
 }

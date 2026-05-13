@@ -52,28 +52,12 @@ void main() {
         return false;
     }
 
-    // Hardcoded wireframe square (4 line segments, 8 vertices)
-    float vertices[] = {
-        -0.5f, -0.5f, 0.0f,
-         0.5f, -0.5f, 0.0f,
-
-         0.5f, -0.5f, 0.0f,
-         0.5f,  0.5f, 0.0f,
-
-         0.5f,  0.5f, 0.0f,
-        -0.5f,  0.5f, 0.0f,
-
-        -0.5f,  0.5f, 0.0f,
-        -0.5f, -0.5f, 0.0f
-    };
-
     glGenVertexArrays(1, &vao_);
     glGenBuffers(1, &vbo_);
 
     glBindVertexArray(vao_);
-
     glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
 
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
@@ -88,6 +72,28 @@ void main() {
     }
 
     initialized_ = true;
+    return true;
+}
+
+bool WireframeMeshRenderer::uploadLines(const float* vertices, std::size_t floatCount) {
+    if (!initialized_) return false;
+    if (floatCount % 3 != 0) {
+        std::cerr << "uploadLines: floatCount (" << floatCount << ") not divisible by 3" << std::endl;
+        return false;
+    }
+
+    vertexCount_ = floatCount / 3;
+
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_);
+    glBufferData(GL_ARRAY_BUFFER, floatCount * sizeof(float), vertices, GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    GLenum err = glGetError();
+    if (err != GL_NO_ERROR) {
+        std::cerr << "GL error after uploadLines: 0x" << std::hex << err << std::endl;
+        return false;
+    }
+
     return true;
 }
 
@@ -108,11 +114,11 @@ GLuint WireframeMeshRenderer::createShader(GLenum type, const char* source) {
 }
 
 void WireframeMeshRenderer::render() {
-    if (!initialized_) return;
+    if (!initialized_ || vertexCount_ == 0) return;
 
     glUseProgram(shaderProgram_);
     glBindVertexArray(vao_);
-    glDrawArrays(GL_LINES, 0, 8);
+    glDrawArrays(GL_LINES, 0, (GLsizei)vertexCount_);
     glBindVertexArray(0);
     glUseProgram(0);
 }
@@ -130,5 +136,6 @@ void WireframeMeshRenderer::shutdown() {
         glDeleteVertexArrays(1, &vao_);
         vao_ = 0;
     }
+    vertexCount_ = 0;
     initialized_ = false;
 }
