@@ -3,12 +3,10 @@
 
 #include "App.h"
 #include "DebugModelViewer.h"
+#include <CacheReader.h>
 
 #include <iostream>
 #include <cstring>
-
-// Defined in DebugModelViewer.cpp
-extern DebugModelViewer* g_viewer;
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
@@ -33,32 +31,18 @@ int main(int argc, char* argv[]) {
     }
     std::cout << "Cache opened: " << cachePath << std::endl;
 
+    // --- Verify model exists and load it ---
     if (!reader.hasFile(1, modelId)) {
         std::cerr << "Model " << modelId << " not found in archive 1" << std::endl;
         return 1;
     }
 
-    DebugModelViewer viewer;
-    if (!viewer.load(reader, modelId)) {
-        std::cerr << "Failed to load model " << modelId << std::endl;
-        return 1;
-    }
-
-    std::cout << "--- Model Info ---" << std::endl;
-    std::cout << "  Vertices:       " << viewer.vertexCount() << std::endl;
-    std::cout << "  Triangles:      " << viewer.triangleCount() << std::endl;
-    std::cout << "  Textured faces: " << viewer.texturedFaceCount() << std::endl;
-    std::cout << "------------------" << std::endl;
-
-    // Wire global viewer pointer for App
-    g_viewer = &viewer;
-
-    // --- Run the window ---
+    // --- Run the window with viewer ---
     App app;
-    if (!app.init("RS317 Wireframe Debug Viewer", 1280, 960)) {
+    if (!app.init("RS317 Debug Viewer", 1280, 960)) {
         std::cerr << "App init failed" << std::endl;
         return 1;
     }
 
-    return app.run();
+    return app.run(reader, modelId);
 }

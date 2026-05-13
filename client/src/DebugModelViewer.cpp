@@ -217,8 +217,44 @@ bool DebugModelViewer::load(CacheReader& reader, int modelId) {
         std::cerr << "Empty buffer for model " << modelId << std::endl;
         return false;
     }
-    ModelDef def = ModelDef::parse(modelId, buf);
-    return buildFromDef(def);
+    try {
+        ModelDef def = ModelDef::parse(modelId, buf);
+        bool ok = buildFromDef(def);
+        if (!ok) {
+            std::cerr << "Model " << modelId << ": validation failed" << std::endl;
+        }
+        return ok;
+    } catch (const std::exception& e) {
+        std::cerr << "Model " << modelId << ": parse error: " << e.what() << std::endl;
+        return false;
+    }
+}
+
+bool DebugModelViewer::reloadModel(CacheReader& reader, int modelId) {
+    // Destroy old GL objects so we can rebuild with new geometry
+    if (ebo_) { glDeleteBuffers(1, &ebo_); ebo_ = 0; }
+    if (vbo_) { glDeleteBuffers(1, &vbo_); vbo_ = 0; }
+    if (vao_) { glDeleteVertexArrays(1, &vao_); vao_ = 0; }
+    idxCount_ = 0;
+
+    bool ok = load(reader, modelId);
+    if (ok && prog_) initGL();  // re-upload to GPU
+    return ok;
+}
+
+void DebugModelViewer::toggleWireframe() {
+    wireframe_ = !wireframe_;
+    std::cout << "Wireframe " << (wireframe_ ? "ON" : "OFF") << std::endl;
+}
+
+void DebugModelViewer::toggleCulling() {
+    culling_ = !culling_;
+    std::cout << "Backface culling " << (culling_ ? "ON" : "OFF") << std::endl;
+}
+
+void DebugModelViewer::resetView() {
+    rotationY_ = 0.0f;
+    std::cout << "View reset" << std::endl;
 }
 
 // ---- Shader compilation ----
@@ -351,8 +387,16 @@ void DebugModelViewer::render(int w, int h) {
     if (mvpLoc_ >= 0)
         glUniformMatrix4fv(mvpLoc_, 1, GL_FALSE, mvp.m);
 
+    // Cull faces toggle
+    if (culling_) glEnable(GL_CULL_FACE);
+    else          glDisable(GL_CULL_FACE);
+
     glBindVertexArray(vao_);
-    glDrawElements(GL_LINES, idxCount_, GL_UNSIGNED_INT, 0);
+    if (wireframe_) {
+        glDrawElements(GL_LINES, idxCount_, GL_UNSIGNED_INT, 0);
+    } else {
+        glDrawElements(GL_TRIANGLES, idxCount_, GL_UNSIGNED_INT, 0);
+    }
     glBindVertexArray(0);
     glUseProgram(0);
 }

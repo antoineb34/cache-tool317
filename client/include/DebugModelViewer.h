@@ -10,8 +10,6 @@
 #include <unordered_set>
 #include <cstdint>
 #include <cmath>
-
-// Simple math — no external dependency.
 struct Vec3f {
     float x = 0, y = 0, z = 0;
     Vec3f() = default;
@@ -55,7 +53,19 @@ public:
     // Returns false if model not found, parse/validation fails.
     bool load(CacheReader& reader, int modelId);
 
-    // Upload geometry to GPU. Call after GL context is live.
+    // Reload a different model using the same CacheReader.
+    bool reloadModel(CacheReader& reader, int modelId);
+
+    // Toggle wireframe drawing mode.
+    void toggleWireframe();
+
+    // Toggle backface culling.
+    void toggleCulling();
+
+    // Reset rotation to default.
+    void resetView();
+
+    // Upload current verts/edges to GPU. Call after GL context is live.
     bool initGL();
 
     // Advance rotation and render wireframe.
@@ -75,6 +85,9 @@ private:
     std::vector<WireVert> verts_;
     std::vector<uint32_t> triIndices_;   // flat [a,b,c, ...]
     std::vector<std::pair<uint32_t,uint32_t>> edges_;  // deduplicated wireframe edges
+
+    bool wireframe_ = true;
+    bool culling_ = true;
 
     // GL state
     GLuint vao_ = 0, vbo_ = 0, ebo_ = 0;

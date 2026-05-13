@@ -2,6 +2,7 @@
 #include "DebugModelViewer.h"
 
 #include <iostream>
+#include <filesystem>
 
 App::App() = default;
 App::~App() { shutdown(); }
@@ -49,6 +50,8 @@ bool App::init(const char* title, int w, int h) {
 }
 
 void App::shutdown() {
+    delete viewer_;
+    viewer_ = nullptr;
     if (window_) {
         SDL_DestroyWindow(window_);
         window_ = nullptr;
@@ -56,8 +59,54 @@ void App::shutdown() {
     SDL_Quit();
 }
 
-// Forward-declared; defined in main.cpp
-extern DebugModelViewer* g_viewer;
+void App::handleDebugKeys(SDL_Keycode key) {
+    switch (key) {
+    case SDLK_LEFT:
+        // Previous model
+        if (reader_) {
+            int prev = currentModelId_ - 1;
+            while (prev >= 0) {
+                if (reader_->hasFile(1, prev)) {
+                    currentModelId_ = prev;
+                    if (viewer_->reloadModel(*reader_, currentModelId_)) {
+                        std::cout << "--- Loaded model " << currentModelId_ << " ---" << std::endl;
+                    }
+                    break;
+                }
+                --prev;
+            }
+        }
+        break;
+    case SDLK_RIGHT:
+        // Next model
+        if (reader_) {
+            int next = currentModelId_ + 1;
+            int maxModels = 10000; // safety limit
+            while (next < maxModels) {
+                if (reader_->hasFile(1, next)) {
+                    currentModelId_ = next;
+                    if (viewer_->reloadModel(*reader_, currentModelId_)) {
+                        std::cout << "--- Loaded model " << currentModelId_ << " ---" << std::endl;
+                    }
+                    break;
+                }
+                ++next;
+            }
+        }
+        break;
+    case SDLK_R:
+        viewer_->resetView();
+        break;
+    case SDLK_W:
+        viewer_->toggleWireframe();
+        break;
+    case SDLK_C:
+        viewer_->toggleCulling();
+        break;
+    default:
+        break;
+    }
+}
 
 void App::handleEvents() {
     SDL_Event e;
@@ -67,7 +116,11 @@ void App::handleEvents() {
                 running_ = false;
                 break;
             case SDL_EVENT_KEY_DOWN:
-                if (e.key.key == SDLK_ESCAPE) running_ = false;
+                if (e.key.key == SDLK_ESCAPE) {
+                    running_ = false;
+                } else {
+                    handleDebugKeys(e.key.key);
+                }
                 break;
             case SDL_EVENT_WINDOW_RESIZED:
                 width_ = e.window.data1;
@@ -79,12 +132,32 @@ void App::handleEvents() {
     }
 }
 
-int App::run() {
-    if (!g_viewer) {
-        std::cerr << "No viewer attached" << std::endl;
+int App::run(CacheReader& reader, int initialModelId) {
+    reader_ = &reader;
+    currentModelId_ = initialModelId;
+
+    // Create viewer and load model
+    viewer_ = new DebugModelViewer();
+
+    if (!reader.hasFile(1, currentModelId_)) {
+        std::cerr << "Model " << currentModelId_ << " not found in archive 1" << std::endl;
         return 1;
     }
 
+    if (!viewer_->load(reader, currentModelId_)) {
+        std::cerr << "Failed to load model " << currentModelId_ << std::endl;
+        return 1;
+    }
+
+    // Log initial model info
+    std::cout << "--- Model Info ---" << std::endl;
+    std::cout << "  Model ID:          " << viewer_->loadedModelId() << std::endl;
+    std::cout << "  Vertices:          " << viewer_->vertexCount() << std::endl;
+    std::cout << "  Triangles:         " << viewer_->triangleCount() << std::endl;
+    std::cout << "  Textured triangles: " << viewer_->texturedFaceCount() << std::endl;
+    std::cout << "-------------------" << std::endl;
+
+    // Main loop
     while (running_) {
         handleEvents();
 
@@ -94,8 +167,8 @@ int App::run() {
         glClearColor(0.08f, 0.08f, 0.12f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        g_viewer->update();
-        g_viewer->render(w, h);
+        viewer_->update();
+        viewer_->render(w, h);
 
         SDL_GL_SwapWindow(window_);
     }
