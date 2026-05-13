@@ -8,17 +8,18 @@
 VersionList VersionList::parse(const Archive& archive) {
     VersionList versionList;
 
-    auto mapIndexData = archive.getFile("map_index");
+    const Buffer& mapIndexData = archive.getFile("map_index");
     if (mapIndexData.empty())
         throw std::runtime_error("Missing or empty versionlist file: map_index");
-    if (mapIndexData.size() % 7 != 0) {
+    if (mapIndexData.size() % 7 !=0) {
         throw std::runtime_error(
             "Malformed map_index: size " + std::to_string(mapIndexData.size()) +
             " is not divisible by 7"
         );
     }
 
-    Buffer buf(mapIndexData);
+    // Create a copy for reading (need to advance position)
+    Buffer buf(mapIndexData.slice(0, mapIndexData.size()));
     int count = static_cast<int>(mapIndexData.size() / 7);
     versionList.mapIndex_.reserve(count);
 

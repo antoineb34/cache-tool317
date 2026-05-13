@@ -15,8 +15,8 @@ static void loadDefs(const Archive& archive,
                      const char* datName,
                      const char* idxName,
                      std::vector<T>& out) {
-    auto dat      = archive.getFile(datHash);
-    auto idxData  = archive.getFile(idxHash);
+    const Buffer& dat      = archive.getFile(datHash);
+    const Buffer& idxData  = archive.getFile(idxHash);
 
     if (dat.empty())
         throw std::runtime_error(std::string("Missing or empty definition data file: ") + datName);
@@ -24,9 +24,12 @@ static void loadDefs(const Archive& archive,
         throw std::runtime_error(std::string("Missing or empty definition index file: ") + idxName);
     if (idxData.size() < 2)
         throw std::runtime_error(std::string("Malformed definition index file: ") + idxName);
-
-    Buffer idx(idxData);
-    int count  = idx.readUShort();
+    
+    // Create copies of the buffers for reading (we need to advance positions)
+    Buffer datBuf(dat.slice(0, dat.size()));
+    Buffer idxBuf(idxData.slice(0, idxData.size()));
+    
+    int count  = idxBuf.readUShort();
     int offset = 2; // skip the 2-byte count header at the start of .dat
 
     std::size_t expectedIdxSize = 2 + static_cast<std::size_t>(count) * 2;
@@ -37,8 +40,8 @@ static void loadDefs(const Archive& archive,
 
     out.resize(count);
 
-    for (int i = 0; i < count; i++) {
-        int size = idx.readUShort();
+    for (int i =0; i < count; i++) {
+        int size = idxBuf.readUShort();
         if (offset + size > static_cast<int>(dat.size())) {
             throw std::runtime_error(
                 std::string("Definition entry exceeds data file bounds in ") + datName +
@@ -46,7 +49,8 @@ static void loadDefs(const Archive& archive,
             );
         }
 
-        Buffer buf(dat.data() + offset, size);
+        // Use slice() to get just the data we need for this entry
+        Buffer buf(datBuf.slice(offset, offset + size));
         out[i]    = T::parse(buf);
         out[i].id = i;
         if (!buf.isEmpty()) {
@@ -113,7 +117,7 @@ void DefinitionsLoader::loadVarps(const Archive& archive) {
 // --- accessors ---
 
 const ItemDef& DefinitionsLoader::getItem(int id) const {
-    if (id < 0 || id >= (int)items_.size())
+    if (id <0 || id >= (int)items_.size())
         throw std::out_of_range("ItemDef id out of range: " + std::to_string(id));
     return items_[id];
 }
@@ -123,7 +127,7 @@ int DefinitionsLoader::itemCount() const {
 }
 
 const NpcDef& DefinitionsLoader::getNpc(int id) const {
-    if (id < 0 || id >= (int)npcs_.size())
+    if (id <0 || id >= (int)npcs_.size())
         throw std::out_of_range("NpcDef id out of range: " + std::to_string(id));
     return npcs_[id];
 }
@@ -133,7 +137,7 @@ int DefinitionsLoader::npcCount() const {
 }
 
 const LocDef& DefinitionsLoader::getLoc(int id) const {
-    if (id < 0 || id >= (int)locs_.size())
+    if (id <0 || id >= (int)locs_.size())
         throw std::out_of_range("LocDef id out of range: " + std::to_string(id));
     return locs_[id];
 }
@@ -143,7 +147,7 @@ int DefinitionsLoader::locCount() const {
 }
 
 const FloDef& DefinitionsLoader::getFlo(int id) const {
-    if (id < 0 || id >= (int)flos_.size())
+    if (id <0 || id >= (int)flos_.size())
         throw std::out_of_range("FloDef id out of range: " + std::to_string(id));
     return flos_[id];
 }
@@ -153,7 +157,7 @@ int DefinitionsLoader::floCount() const {
 }
 
 const IdkDef& DefinitionsLoader::getIdk(int id) const {
-    if (id < 0 || id >= (int)idks_.size())
+    if (id <0 || id >= (int)idks_.size())
         throw std::out_of_range("IdkDef id out of range: " + std::to_string(id));
     return idks_[id];
 }
@@ -163,7 +167,7 @@ int DefinitionsLoader::idkCount() const {
 }
 
 const MesAnimDef& DefinitionsLoader::getMesAnim(int id) const {
-    if (id < 0 || id >= (int)mesAnims_.size())
+    if (id <0 || id >= (int)mesAnims_.size())
         throw std::out_of_range("MesAnimDef id out of range: " + std::to_string(id));
     return mesAnims_[id];
 }
@@ -173,7 +177,7 @@ int DefinitionsLoader::mesAnimCount() const {
 }
 
 const MesDef& DefinitionsLoader::getMes(int id) const {
-    if (id < 0 || id >= (int)mes_.size())
+    if (id <0 || id >= (int)mes_.size())
         throw std::out_of_range("MesDef id out of range: " + std::to_string(id));
     return mes_[id];
 }
@@ -183,7 +187,7 @@ int DefinitionsLoader::mesCount() const {
 }
 
 const ParamDef& DefinitionsLoader::getParam(int id) const {
-    if (id < 0 || id >= (int)params_.size())
+    if (id <0 || id >= (int)params_.size())
         throw std::out_of_range("ParamDef id out of range: " + std::to_string(id));
     return params_[id];
 }
@@ -193,7 +197,7 @@ int DefinitionsLoader::paramCount() const {
 }
 
 const SpotAnimDef& DefinitionsLoader::getSpotAnim(int id) const {
-    if (id < 0 || id >= (int)spotAnims_.size())
+    if (id <0 || id >= (int)spotAnims_.size())
         throw std::out_of_range("SpotAnimDef id out of range: " + std::to_string(id));
     return spotAnims_[id];
 }
@@ -203,7 +207,7 @@ int DefinitionsLoader::spotAnimCount() const {
 }
 
 const SeqDef& DefinitionsLoader::getSeq(int id) const {
-    if (id < 0 || id >= (int)seqs_.size())
+    if (id <0 || id >= (int)seqs_.size())
         throw std::out_of_range("SeqDef id out of range: " + std::to_string(id));
     return seqs_[id];
 }
@@ -213,7 +217,7 @@ int DefinitionsLoader::seqCount() const {
 }
 
 const VarbitDef& DefinitionsLoader::getVarbit(int id) const {
-    if (id < 0 || id >= (int)varbits_.size())
+    if (id <0 || id >= (int)varbits_.size())
         throw std::out_of_range("VarbitDef id out of range: " + std::to_string(id));
     return varbits_[id];
 }
@@ -223,7 +227,7 @@ int DefinitionsLoader::varbitCount() const {
 }
 
 const VarpDef& DefinitionsLoader::getVarp(int id) const {
-    if (id < 0 || id >= (int)varps_.size())
+    if (id <0 || id >= (int)varps_.size())
         throw std::out_of_range("VarpDef id out of range: " + std::to_string(id));
     return varps_[id];
 }

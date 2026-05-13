@@ -5,15 +5,17 @@
 #include <unordered_map>
 #include <vector>
 
-struct Archive {
-    // sub-files indexed by name hash -> decompressed bytes
-    std::unordered_map<uint32_t, std::vector<uint8_t>> files;
+#include "Buffer.h"
 
-    // get a sub-file by name hash
-    std::vector<uint8_t> getFile(uint32_t nameHash) const;
+struct Archive {
+    // sub-files indexed by name hash -> decompressed bytes (stored as Buffer!)
+    std::unordered_map<uint32_t, Buffer> files;
+
+    // get a sub-file by name hash (returns reference to Buffer)
+    const Buffer& getFile(uint32_t nameHash) const;
 
     // get a sub-file by name (computes hash internally)
-    std::vector<uint8_t> getFile(const std::string& name) const;
+    const Buffer& getFile(const std::string& name) const;
 
     // check if a sub-file exists
     bool hasFile(uint32_t nameHash) const;
