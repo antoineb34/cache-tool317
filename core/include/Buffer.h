@@ -32,23 +32,17 @@ public:
     
     // Inline for speed - these are called frequently
     inline uint8_t readByte() {
-#ifdef DEBUG_BUFFER
         checkRemaining(1);
-#endif
         return data_[pos++];
     }
     
     inline int8_t readSByte() {
-#ifdef DEBUG_BUFFER
         checkRemaining(1);
-#endif
         return static_cast<int8_t>(data_[pos++]);
     }
     
     inline uint16_t readUShort() {
-#ifdef DEBUG_BUFFER
         checkRemaining(2);
-#endif
         uint16_t value = (static_cast<uint16_t>(data_[pos]) << 8) | data_[pos + 1];
         pos += 2;
         return value;
@@ -57,9 +51,7 @@ public:
     int16_t readShort() { return static_cast<int16_t>(readUShort()); }
     
     inline uint32_t readTribyte() {
-#ifdef DEBUG_BUFFER
         checkRemaining(3);
-#endif
         uint32_t value = (static_cast<uint32_t>(data_[pos])     << 16)
                        | (static_cast<uint32_t>(data_[pos + 1]) <<  8)
                        |  static_cast<uint32_t>(data_[pos + 2]);
@@ -68,9 +60,7 @@ public:
     }
     
     inline int32_t readInt() {
-#ifdef DEBUG_BUFFER
         checkRemaining(4);
-#endif
         int32_t value = (static_cast<int32_t>(data_[pos])     << 24)
                       | (static_cast<int32_t>(data_[pos + 1]) << 16)
                       | (static_cast<int32_t>(data_[pos + 2]) <<  8)
@@ -84,41 +74,31 @@ public:
 
     // --- Peek methods (read WITHOUT advancing position) ---
     inline uint8_t peekByte() const {
-#ifdef DEBUG_BUFFER
         checkRemaining(1);
-#endif
         return data_[pos];
     }
     
     inline int8_t peekSByte() const {
-#ifdef DEBUG_BUFFER
         checkRemaining(1);
-#endif
         return static_cast<int8_t>(data_[pos]);
     }
     
     inline uint16_t peekUShort() const {
-#ifdef DEBUG_BUFFER
         checkRemaining(2);
-#endif
         return (static_cast<uint16_t>(data_[pos]) << 8) | data_[pos + 1];
     }
     
     int16_t peekShort() const { return static_cast<int16_t>(peekUShort()); }
     
     inline uint32_t peekTribyte() const {
-#ifdef DEBUG_BUFFER
         checkRemaining(3);
-#endif
         return (static_cast<uint32_t>(data_[pos])     << 16)
              | (static_cast<uint32_t>(data_[pos + 1]) <<  8)
              |  static_cast<uint32_t>(data_[pos + 2]);
     }
     
     inline int32_t peekInt() const {
-#ifdef DEBUG_BUFFER
         checkRemaining(4);
-#endif
         return (static_cast<int32_t>(data_[pos])     << 24)
              | (static_cast<int32_t>(data_[pos + 1]) << 16)
              | (static_cast<int32_t>(data_[pos + 2]) <<  8)
