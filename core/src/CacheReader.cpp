@@ -259,8 +259,9 @@ Buffer CacheReader::readFile(int archiveId, int fileId) {
                                    ", got=" + std::to_string(sectorChunk) +
                                    ", sector=" + std::to_string(currentSector) + ")");
         }
-        if (sectorArchiveId != static_cast<uint8_t>(archiveId)) {
-            throw std::runtime_error("CacheReader: sector archiveId mismatch (expected=" + std::to_string(archiveId) +
+        // NOTE: sector header archive id is 1-based (idx0=1, idx1=2, etc.)
+        if (sectorArchiveId != static_cast<uint8_t>(archiveId + 1)) {
+            throw std::runtime_error("CacheReader: sector archiveId mismatch (expected=" + std::to_string(archiveId + 1) +
                                    ", got=" + std::to_string(sectorArchiveId) +
                                    ", sector=" + std::to_string(currentSector) + ")");
         }
