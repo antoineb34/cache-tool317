@@ -162,45 +162,86 @@ Buffer CacheReader::readFile(int archiveId, int fileId) {
     if (entry.size == 0 || entry.firstSector == 0) return Buffer(std::vector<uint8_t>{});
     if (entry.size == 0xFFFFFF || entry.firstSector == 0xFFFFFF) return Buffer(std::vector<uint8_t>{});
 
-    // Calculate total sectors needed
-    uint32_t numSectors = (entry.size + 511) / 512;  // round up
-    uint32_t totalBytes = numSectors * 520;  // 8 header + 512 data per sector
-    
-    // Read all sectors in one operation
-    std::vector<uint8_t> rawSectors(totalBytes);
-    
-    if (useMmap && datMmap != nullptr) {
-        // Memory-mapped: copy directly from mmap'd buffer
-        if (entry.firstSector * 520 + totalBytes > datSize) {
-            return Buffer(std::vector<uint8_t>{});  // Out of bounds
-        }
-        std::memcpy(rawSectors.data(), datMmap + (entry.firstSector * 520), totalBytes);
-    } else {
-        // Fallback: use std::ifstream
-        datFallback.seekg(entry.firstSector * 520);
-        datFallback.read(reinterpret_cast<char*>(rawSectors.data()), totalBytes);
-        
-        if (!datFallback) {
-            return Buffer(std::vector<uint8_t>{});
-        }
-    }
-    
-    // Extract data, skipping 8-byte header per sector
+    // Walk the sector chain instead of assuming contiguous sectors
     std::vector<uint8_t> buffer;
     buffer.reserve(entry.size);
-    buffer.resize(entry.size);
-    
-    uint8_t* dst = buffer.data();
+
+    uint32_t currentSector = entry.firstSector;
     uint32_t bytesCopied = 0;
-    
-    for (uint32_t i = 0; i < numSectors && bytesCopied < entry.size; i++) {
-        uint8_t* sectorData = rawSectors.data() + (i * 520) + 8;  // skip header
+    uint16_t chunkIndex = 0;
+
+    while (currentSector != 0 && bytesCopied < entry.size) {
+        uint64_t sectorOffset = static_cast<uint64_t>(currentSector) * 520;
+
+        // Verify sector offset is within .dat bounds
+        if (sectorOffset + 520 > datSize) {
+            throw std::runtime_error("CacheReader: sector out of bounds (sector=" + std::to_string(currentSector) +
+                                   ", offset=" + std::to_string(sectorOffset) +
+                                   ", datSize=" + std::to_string(datSize) + ")");
+        }
+
+        // Read the 8-byte sector header
+        std::array<uint8_t, 8> header;
+        if (useMmap && datMmap != nullptr) {
+            std::memcpy(header.data(), datMmap + sectorOffset, 8);
+        } else {
+            datFallback.seekg(sectorOffset);
+            datFallback.read(reinterpret_cast<char*>(header.data()), 8);
+            if (!datFallback) {
+                throw std::runtime_error("CacheReader: failed to read sector header (sector=" + std::to_string(currentSector) + ")");
+            }
+        }
+
+        Buffer headerBuf(header.data(), 8);
+        uint16_t sectorFileId    = headerBuf.readUShort();
+        uint16_t sectorChunk     = headerBuf.readUShort();
+        uint32_t nextSector      = headerBuf.readTribyte();
+        uint8_t  sectorArchiveId = headerBuf.readByte();
+
+        // Validate header fields
+        if (sectorFileId != static_cast<uint16_t>(fileId)) {
+            throw std::runtime_error("CacheReader: sector fileId mismatch (expected=" + std::to_string(fileId) +
+                                   ", got=" + std::to_string(sectorFileId) +
+                                   ", sector=" + std::to_string(currentSector) + ")");
+        }
+        if (sectorChunk != chunkIndex) {
+            throw std::runtime_error("CacheReader: sector chunk mismatch (expected=" + std::to_string(chunkIndex) +
+                                   ", got=" + std::to_string(sectorChunk) +
+                                   ", sector=" + std::to_string(currentSector) + ")");
+        }
+        if (sectorArchiveId != static_cast<uint8_t>(archiveId)) {
+            throw std::runtime_error("CacheReader: sector archiveId mismatch (expected=" + std::to_string(archiveId) +
+                                   ", got=" + std::to_string(sectorArchiveId) +
+                                   ", sector=" + std::to_string(currentSector) + ")");
+        }
+
+        // Copy up to 512 bytes of payload (last sector may be partial)
         uint32_t toCopy = std::min(512u, entry.size - bytesCopied);
-        std::memcpy(dst + bytesCopied, sectorData, toCopy);
+
+        if (useMmap && datMmap != nullptr) {
+            buffer.insert(buffer.end(), datMmap + sectorOffset + 8, datMmap + sectorOffset + 8 + toCopy);
+        } else {
+            size_t prevSize = buffer.size();
+            buffer.resize(prevSize + toCopy);
+            datFallback.read(reinterpret_cast<char*>(buffer.data() + prevSize), toCopy);
+            if (!datFallback) {
+                throw std::runtime_error("CacheReader: failed to read sector data (sector=" + std::to_string(currentSector) + ")");
+            }
+        }
+
         bytesCopied += toCopy;
+        currentSector = nextSector;
+        chunkIndex++;
     }
-    
-    buffer.resize(bytesCopied);
+
+    // If we exited the loop with fewer bytes than expected, the chain was broken
+    if (bytesCopied < entry.size) {
+        throw std::runtime_error("CacheReader: truncated file (copied=" + std::to_string(bytesCopied) +
+                               ", expected=" + std::to_string(entry.size) +
+                               ", fileId=" + std::to_string(fileId) +
+                               ", archiveId=" + std::to_string(archiveId) + ")");
+    }
+
     return Buffer(std::move(buffer));
 }
 
