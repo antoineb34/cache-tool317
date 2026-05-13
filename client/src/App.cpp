@@ -149,6 +149,11 @@ int App::run(CacheReader& reader, int initialModelId) {
         return 1;
     }
 
+    if (!viewer_->initGL()) {
+        std::cerr << "Failed to init GL for model " << currentModelId_ << std::endl;
+        return 1;
+    }
+
     // Log initial model info
     std::cout << "--- Model Info ---" << std::endl;
     std::cout << "  Model ID:          " << viewer_->loadedModelId() << std::endl;
@@ -158,6 +163,7 @@ int App::run(CacheReader& reader, int initialModelId) {
     std::cout << "-------------------" << std::endl;
 
     // Main loop
+    int frameCount = 0;
     while (running_) {
         handleEvents();
 
@@ -170,7 +176,24 @@ int App::run(CacheReader& reader, int initialModelId) {
         viewer_->update();
         viewer_->render(w, h);
 
+        // Dump first frame to PPM for headless verification
+        if (frameCount == 0) {
+            std::vector<unsigned char> pixels(w * h * 3);
+            glReadPixels(0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
+            std::ofstream ppm("screenshot.ppm", std::ios::binary);
+            ppm << "P6\n" << w << " " << h << "\n255\n";
+            // OpenGL reads bottom-up, flip vertically
+            for (int y = h - 1; y >= 0; y--) {
+                ppm.write((char*)&pixels[y * w * 3], w * 3);
+            }
+            ppm.close();
+            std::cout << "Wrote screenshot.ppm (" << w << "x" << h << ")" << std::endl;
+        }
+
         SDL_GL_SwapWindow(window_);
+
+        frameCount++;
+        if (frameCount >= 30) running_ = false; // auto-exit after 30 frames
     }
 
     return 0;

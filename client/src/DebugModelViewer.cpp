@@ -194,6 +194,22 @@ bool DebugModelViewer::buildFromDef(const ModelDef& def) {
               << " tex=" << texFaceCount_
               << " edges=" << edges_.size()
               << std::endl;
+
+    // Compute and log bounding box
+    if (!verts_.empty()) {
+        float minX = verts_[0].x, maxX = verts_[0].x;
+        float minY = verts_[0].y, maxY = verts_[0].y;
+        float minZ = verts_[0].z, maxZ = verts_[0].z;
+        for (const auto& v : verts_) {
+            if (v.x < minX) minX = v.x; if (v.x > maxX) maxX = v.x;
+            if (v.y < minY) minY = v.y; if (v.y > maxY) maxY = v.y;
+            if (v.z < minZ) minZ = v.z; if (v.z > maxZ) maxZ = v.z;
+        }
+        std::cout << "  Bounding box: X[" << minX << "," << maxX
+                  << "] Y[" << minY << "," << maxY
+                  << "] Z[" << minZ << "," << maxZ << "]" << std::endl;
+    }
+
     return true;
 }
 
@@ -293,7 +309,7 @@ void main() {
 in vec3 vCol;
 out vec4 outColor;
 void main() {
-    outColor = vec4(vCol / 255.0, 1.0);
+    outColor = vec4(vCol, 1.0);
 }
 )GLSL";
 
@@ -344,7 +360,7 @@ bool DebugModelViewer::initGL() {
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(WireVert), (void*)0);
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(WireVert), (void*)offsetof(WireVert, r));
+    glVertexAttribPointer(1, 3, GL_UNSIGNED_BYTE, GL_FALSE, sizeof(WireVert), (void*)offsetof(WireVert, r));
 
     glBindVertexArray(0);
 
@@ -357,7 +373,9 @@ bool DebugModelViewer::initGL() {
     }
 
     std::cout << "DebugModelViewer: GL buffers uploaded ("
-              << verts_.size() << " verts, " << edges_.size() << " edges)"
+              << verts_.size() << " verts, " << edges_.size() << " edges, "
+              << "vao=" << vao_ << " vbo=" << vbo_ << " ebo=" << ebo_
+              << " prog=" << prog_ << " idxCount=" << idxCount_ << ")"
               << std::endl;
     return true;
 }
@@ -371,14 +389,17 @@ void DebugModelViewer::update() {
 }
 
 void DebugModelViewer::render(int w, int h) {
-    if (!prog_ || !vao_ || !idxCount_) return;
+    if (!prog_ || !vao_ || !idxCount_) {
+        std::cerr << "Render skip: prog=" << prog_ << " vao=" << vao_ << " idxCount=" << idxCount_ << std::endl;
+        return;
+    }
 
-    // Camera: fixed position looking at origin
-    Mat4f proj  = Mat4f::perspective(55.0f, (float)w / (float)h, 0.1f, 500.0f);
+    // Camera: positioned to see the model comfortably
+    Mat4f proj  = Mat4f::perspective(45.0f, (float)w / (float)h, 0.1f, 2000.0f);
     Mat4f view  = Mat4f::lookAt(
-        Vec3f(0.0f, 40.0f, 100.0f),   // eye
-        Vec3f(0.0f, 0.0f, 0.0f),      // center
-        Vec3f(0.0f, 1.0f, 0.0f));     // up
+        Vec3f(0.0f, 60.0f, 600.0f),  // eye — pulled back to see Z range up to ~400
+        Vec3f(0.0f, 50.0f, 0.0f),    // center — roughly model center Y
+        Vec3f(0.0f, 1.0f, 0.0f));    // up
     Mat4f mvp   = proj * view;
     Mat4f model = Mat4f::rotateY(rotationY_);
     mvp = mvp * model;
@@ -386,6 +407,11 @@ void DebugModelViewer::render(int w, int h) {
     glUseProgram(prog_);
     if (mvpLoc_ >= 0)
         glUniformMatrix4fv(mvpLoc_, 1, GL_FALSE, mvp.m);
+
+    GLenum err = glGetError();
+    if (err != GL_NO_ERROR) {
+        std::cerr << "GL error after uniform setup: 0x" << std::hex << err << std::endl;
+    }
 
     // Cull faces toggle
     if (culling_) glEnable(GL_CULL_FACE);
@@ -397,6 +423,12 @@ void DebugModelViewer::render(int w, int h) {
     } else {
         glDrawElements(GL_TRIANGLES, idxCount_, GL_UNSIGNED_INT, 0);
     }
+
+    err = glGetError();
+    if (err != GL_NO_ERROR) {
+        std::cerr << "GL error after draw: 0x" << std::hex << err << std::endl;
+    }
+
     glBindVertexArray(0);
     glUseProgram(0);
 }
