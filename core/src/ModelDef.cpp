@@ -13,7 +13,7 @@ ModelDef ModelDef::parse(int id, Buffer& buf) {
 
     // --- read footer (last 18 bytes) ---
     buf.seek(dataSize - 18);
-    
+
     auto readU16 = [&]() -> uint16_t {
         return buf.readUShort();
     };
@@ -32,7 +32,7 @@ ModelDef ModelDef::parse(int id, Buffer& buf) {
     int     triIndexLen       = readU16();
 
     // Validate total size
-    int expectedSize = vertexCount + triangleCount 
+    int expectedSize = vertexCount + triangleCount
         + (priorityFlag == 255 ? triangleCount : 0)
         + (hasFaceSkins ? triangleCount : 0)
         + (hasFaceRenderTypes ? triangleCount : 0)
@@ -43,7 +43,7 @@ ModelDef ModelDef::parse(int id, Buffer& buf) {
         + texTriCount * 6
         + vertexXLen + vertexYLen + vertexZLen
         + 18;  // footer
-    
+
     if (dataSize < expectedSize) {
         throw std::runtime_error("ModelDef " + std::to_string(id) + ": data too small for declared sizes");
     }
@@ -90,24 +90,27 @@ ModelDef ModelDef::parse(int id, Buffer& buf) {
     std::vector<uint8_t> vertexFlags(vertexCount);
     for (int i = 0; i < vertexCount; i++) vertexFlags[i] = buf.readByte();
 
-    buf.seek(vertexXOff);
-    std::vector<int> xDeltas(vertexXLen > 0 ? vertexCount : 0);
-    for (int i = 0; i < vertexCount && vertexXLen > 0; i++) xDeltas[i] = buf.readSignedSmart();
+    Buffer xBuf(buf.slice(vertexXOff, vertexXOff + vertexXLen));
+    Buffer yBuf(buf.slice(vertexYOff, vertexYOff + vertexYLen));
+    Buffer zBuf(buf.slice(vertexZOff, vertexZOff + vertexZLen));
 
-    buf.seek(vertexYOff);
-    std::vector<int> yDeltas(vertexYLen > 0 ? vertexCount : 0);
-    for (int i = 0; i < vertexCount && vertexYLen > 0; i++) yDeltas[i] = buf.readSignedSmart();
+    int x = 0;
+    int y = 0;
+    int z = 0;
 
-    buf.seek(vertexZOff);
-    std::vector<int> zDeltas(vertexZLen > 0 ? vertexCount : 0);
-    for (int i = 0; i < vertexCount && vertexZLen > 0; i++) zDeltas[i] = buf.readSignedSmart();
-
-    int x = 0, y = 0, z = 0;
     for (int i = 0; i < vertexCount; i++) {
+
         int flags = vertexFlags[i];
-        if (flags & 1) x += (vertexXLen > 0) ? xDeltas[i] : 0;
-        if (flags & 2) y += (vertexYLen > 0) ? yDeltas[i] : 0;
-        if (flags & 4) z += (vertexZLen > 0) ? zDeltas[i] : 0;
+
+        if (flags & 1)
+            x += xBuf.readSignedSmart();
+
+        if (flags & 2)
+            y += yBuf.readSignedSmart();
+
+        if (flags & 4)
+            z += zBuf.readSignedSmart();
+
         def.vertexX[i] = x;
         def.vertexY[i] = y;
         def.vertexZ[i] = z;
@@ -126,7 +129,7 @@ ModelDef ModelDef::parse(int id, Buffer& buf) {
     for (int i = 0; i < triangleCount; i++) opcodes[i] = buf.readByte();
 
     buf.seek(triIndexOff);
-    
+
     def.triA.resize(triangleCount);
     def.triB.resize(triangleCount);
     def.triC.resize(triangleCount);
